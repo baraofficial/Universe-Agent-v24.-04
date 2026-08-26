@@ -3,16 +3,7 @@ import re
 with open("src/App.tsx", "r") as f:
     content = f.read()
 
-# 1. Fix bottom nav
-content = re.sub(r"\{\s*id:\s*'prompt',\s*label:\s*'Prompt',\s*icon:\s*Terminal\s*\},", "", content)
-content = re.sub(r"\{\s*id:\s*'tools',\s*label:\s*'Tools',\s*icon:\s*Wrench\s*\},", "", content)
-content = re.sub(r"\{\s*id:\s*'account',\s*label:\s*'Akun',\s*icon:\s*UserCircle\s*\},", "", content)
-
-# 2. Add modals at the end just before closing </nav> </div> ); } or simply just before bottom nav
 modals = """
-      {/* =======================================================================
-          MODALS / DRAWERS
-          ======================================================================= */}
       {/* Settings Modal (Gear Icon) */}
       {isSettingsMenuOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4">
@@ -163,9 +154,7 @@ modals = """
         </div>
       )}
 """
-content = content.replace('      {/*  =======================================================================', modals + '\n      {/*  =======================================================================')
+content = content.replace('<nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95', modals + '\n<nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95')
 
 with open("src/App.tsx", "w") as f:
     f.write(content)
-
-print("Modals added and bottom nav items removed.")
