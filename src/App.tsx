@@ -47,7 +47,7 @@ import {
  Plus,
  Upload,
  Camera
-, ArrowDown, Rocket, Download, Edit2, Copy, FileCode, Eye, Check as CheckIcon} from 'lucide-react';
+, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon} from 'lucide-react';
 
 // ============================================================================
 // STRUKTUR DATA (TYPES & INTERFACES)
@@ -755,11 +755,26 @@ export default function App() {
  </div>
  )}
 
- {/* Isi Pesan Chat */}
- <div className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
- {renderMessageText(msg.text)}
- </div>
- </div>
+               {/* Isi Pesan Chat */}
+              <div className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                {renderMessageText(msg.text)}
+              </div>
+              
+              {/* ACTION BAR (IKON COPY, THUMBS UP, THUMBS DOWN) */}
+              {isAi && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 text-gray-500">
+                  <button onClick={() => navigator.clipboard.writeText(msg.text)} className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Salin pesan">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Jawaban bagus">
+                    <ThumbsUp className="w-4 h-4" />
+                  </button>
+                  <button className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Jawaban buruk">
+                    <ThumbsDown className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
 
  {/* Avatar User (sebelah kanan bubble User) */}
  {!isAi && (
@@ -796,9 +811,7 @@ export default function App() {
  <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '150ms' }} />
  <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '300ms' }} />
  </div>
- <span className="text-sm font-mono text-primary-300 font-medium tracking-wide">
- Agent sedang berpikir...
- </span>
+ 
  </div>
  </div>
  )}
