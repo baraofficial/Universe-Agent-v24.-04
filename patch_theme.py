@@ -1,6 +1,9 @@
-@import "tailwindcss";
+import re
 
+with open('src/index.css', 'r') as f:
+    css = f.read()
 
+theme_css = """
 @theme {
   --color-primary-50: var(--primary-50);
   --color-primary-100: var(--primary-100);
@@ -56,43 +59,25 @@
   --primary-900: #1e3a8a;
   --primary-950: #172554;
 }
+"""
 
-@layer utilities {
-  .font-orbitron {
-    font-family: 'Orbitron', sans-serif;
-  }
-  .font-mono {
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .glow-primary {
-    box-shadow: 0 0 20px var(--color-primary-500), 0 0 40px var(--color-primary-900);
-  }
-  .glow-primary-sm {
-    box-shadow: 0 0 12px var(--color-primary-500);
-  }
-  .glow-primary-text {
-    text-shadow: 0 0 10px var(--color-primary-500), 0 0 20px var(--color-primary-900);
+css = css.replace('@layer utilities {', theme_css + '\n@layer utilities {')
+css = css.replace('rgba(139, 92, 246,', 'var(--primary-500),') # roughly
+css = css.replace('text-shadow: 0 0 10px rgba(139, 92, 246, 0.8), 0 0 20px rgba(139, 92, 246, 0.4);', 'text-shadow: 0 0 10px var(--color-primary-500), 0 0 20px var(--color-primary-900);')
+css = css.replace('#2D1B69', 'var(--primary-900)')
+css = css.replace('#8B5CF6', 'var(--primary-500)')
+css = css.replace('glow-purple', 'glow-primary')
 
-    text-shadow: 0 0 10px var(--color-primary-500), 0 0 20px var(--color-primary-900);
-  }
-  .glow-green-sm {
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
-  }
-}
+with open('src/index.css', 'w') as f:
+    f.write(css)
 
-/* Custom dark scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0A0A0A;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--primary-900);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-500);
-}
+with open('src/App.tsx', 'r') as f:
+    app_tsx = f.read()
 
+# Replace all purple utility classes with primary
+app_tsx = re.sub(r'purple', 'primary', app_tsx)
+
+with open('src/App.tsx', 'w') as f:
+    f.write(app_tsx)
+
+print("Theme patched")
