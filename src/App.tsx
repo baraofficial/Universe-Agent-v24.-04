@@ -9,6 +9,9 @@
  * ============================================================================
  */
 
+import { GoogleLogin, googleLogout } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
+
 import React, { useState, useEffect, useRef } from 'react';
 
 import {
@@ -304,7 +307,42 @@ export default function App() {
 
  // --- STATE SYSTEM PROMPT ---
  // Menyimpan isi System Prompt dari localStorage atau default prompt
- const [systemPrompt, setSystemPrompt] = useState<string>(() => {
+ 
+  // --- STATE GOOGLE LOGIN ---
+  const [googleUser, setGoogleUser] = useState<any>(() => {
+    const saved = localStorage.getItem('bara_google_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const handleGoogleSuccess = (credentialResponse: any) => {
+    if (credentialResponse.credential) {
+      const decoded = jwtDecode(credentialResponse.credential);
+      setGoogleUser(decoded);
+      localStorage.setItem('bara_google_user', JSON.stringify(decoded));
+      setMessages(prev => [...prev, {
+        id: `sys-${Date.now()}`,
+        sender: 'ai',
+        text: `Login berhasil cak! Selamat datang ${(decoded as any).name}.`,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        toolUsed: 'Sistem'
+      }]);
+    }
+  };
+
+  const handleGoogleLogout = () => {
+    googleLogout();
+    setGoogleUser(null);
+    localStorage.removeItem('bara_google_user');
+  };
+
+  const [systemPrompt, setSystemPrompt] = useState<string>(() => {
  const saved = localStorage.getItem(STORAGE_KEY_PROMPT);
  return saved || DEFAULT_SYSTEM_PROMPT;
  });
