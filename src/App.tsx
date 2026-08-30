@@ -341,38 +341,40 @@ export default function App() {
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
-  // --- STATE GOOGLE LOGIN ---
-  const [googleUser, setGoogleUser] = useState<any>(() => {
-    const saved = localStorage.getItem('bara_google_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  // --- STATE GOOGLE LOGIN (FIREBASE) ---
+  const [googleUser, setGoogleUser] = useState<any>(null);
 
-  const handleGoogleSuccess = (credentialResponse: any) => {
-    if (credentialResponse.credential) {
-      const decoded = jwtDecode(credentialResponse.credential);
-      setGoogleUser(decoded);
-      localStorage.setItem('bara_google_user', JSON.stringify(decoded));
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setGoogleUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleFirebaseGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
       setMessages(prev => [...prev, {
         id: `sys-${Date.now()}`,
         sender: 'ai',
-        text: `Login berhasil cak! Selamat datang ${(decoded as any).name}.`,
+        text: `Login berhasil cak! Selamat datang ${user.displayName}.`,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         toolUsed: 'Sistem'
       }]);
+    } catch (error: any) {
+      console.error("Firebase Login Error:", error);
+      alert("Gagal login: " + error.message);
     }
   };
 
-  const handleGoogleLogout = () => {
-    googleLogout();
-    setGoogleUser(null);
-    localStorage.removeItem('bara_google_user');
+  const handleFirebaseLogout = async () => {
+    try {
+      await signOut(auth);
+      setGoogleUser(null);
+    } catch (error: any) {
+      console.error("Firebase Logout Error:", error);
+    }
   };
 
   const [systemPrompt, setSystemPrompt] = useState<string>(() => {
@@ -1012,11 +1014,11 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <img src={googleUser.picture} alt="Profile" className="w-10 h-10 rounded-full border border-primary-500" referrerPolicy="no-referrer" />
                       <div>
-                        <p className="font-semibold text-sm">{googleUser.name}</p>
+                        <p className="font-semibold text-sm">{googleUser.displayName}</p>
                         <p className="text-xs text-gray-400">{googleUser.email}</p>
                       </div>
                     </div>
-                    <button onClick={handleFirebaseGoogleLogout} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors cursor-pointer" title="Logout">
+                    <button onClick={handleFirebaseLogout} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors cursor-pointer" title="Logout">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                     </button>
                   </div>
