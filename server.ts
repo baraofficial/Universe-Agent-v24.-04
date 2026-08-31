@@ -67,7 +67,18 @@ async function startServer() {
         ).join('\n\n');
       }
 
-      const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${prompt}`;
+      const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
+
+<system_prompt_dari_user>
+${systemPrompt || "Kamu adalah BARA AGENT. Jawab dengan santai, gunakan kata sapaan 'cak'."}
+</system_prompt_dari_user>
+
+ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
+1. Kamu WAJIB merespons DALAM FORMAT JSON sesuai dengan schema yang diberikan.
+2. Jika user meminta untuk melakukan update ke github, commit, atau push kode, kamu WAJIB mengisi property 'gitAction' di JSON dengan 'commitMessage' yang mendeskripsikan perubahan tersebut.
+3. Selalu patuhi identitas, gaya bahasa, aturan, dan larangan yang ditetapkan dalam <system_prompt_dari_user> di atas.`;
+
+  const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${prompt}`;
 
       let response;
       let retries = 3;
@@ -79,7 +90,7 @@ async function startServer() {
             model: "gemini-3.6-flash",
             contents: promptWithContext,
             config: {
-              systemInstruction: systemPrompt || "Kamu adalah BARA AGENT. Jawab dengan santai, gunakan kata sapaan 'cak'. Jawab dalam format JSON sesuai schema. Jika user meminta untuk commit dan push ke github atau update github, isi property gitAction di JSON dengan commitMessage yang sesuai dengan apa yang baru saja dilakukan atau diminta.",
+              systemInstruction: finalSystemInstruction,
               responseMimeType: "application/json",
               responseSchema: {
                 type: Type.OBJECT,
