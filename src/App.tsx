@@ -598,7 +598,7 @@ export default function App() {
  setInputCommand('');
 
  setIsThinking(true);
- setActiveToolBadge(null);
+ 
 
  try {
  const response = await fetch('/api/chat', {
@@ -626,7 +626,7 @@ export default function App() {
  toolUsed: result.toolUsed || 'Umum'
  };
 
- setActiveToolBadge(result.toolUsed || 'Umum');
+ 
 
  const newHistoryItem: TaskHistoryItem = {
  id: `task-${Date.now()}`,
