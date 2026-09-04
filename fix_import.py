@@ -3,8 +3,7 @@ import re
 with open("src/App.tsx", "r") as f:
     content = f.read()
 
-if "MoreVertical" not in content:
-    content = content.replace("from 'lucide-react';", ", MoreVertical } from 'lucide-react';")
+content = content.replace("} , MoreVertical } from 'lucide-react';", ", MoreVertical } from 'lucide-react';")
 
 with open("src/App.tsx", "w") as f:
     f.write(content)
