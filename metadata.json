@@ -1,5 +1,5 @@
 {
-  "name": "BARA AGENT",
+  "name": "BARA AI",
   "description": "Asisten AI futuristik bertema gelap dan ungu neon dengan simulasi System Prompt, Tools, dan Riwayat Tugas.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

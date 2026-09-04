@@ -40,7 +40,7 @@ async function startServer() {
         try {
           const commitUrl = await commitFileToGithub(
             "TEST_AGENT.md", 
-            "# TEST AGENT\n\nIni adalah file test buatan Bara Agent cak! Berhasil di-upload via Octokit API.", 
+            "# TEST AGENT\n\nIni adalah file test buatan Bara AI cak! Berhasil di-upload via Octokit API.", 
             "test: create TEST_AGENT.md via agent"
           );
           return res.json({
@@ -70,7 +70,7 @@ async function startServer() {
       const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
 
 <system_prompt_dari_user>
-${systemPrompt || "Kamu adalah BARA AGENT. Jawab dengan santai, gunakan kata sapaan 'cak'."}
+${systemPrompt || "Kamu adalah BARA AI. Jawab dengan santai, gunakan kata sapaan 'cak'."}
 </system_prompt_dari_user>
 
 ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):

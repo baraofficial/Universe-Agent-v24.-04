@@ -5,7 +5,7 @@ import { auth, googleProvider } from './firebase';
  * SPDX-License-Identifier: Apache-2.0
  *
  * ============================================================================
- * APLIKASI WEB: BARA AGENT
+ * APLIKASI WEB: BARA AI
  * TEMA: Hitam #0A0A0A dan Ungu #8B5CF6 (Futuristik, Dark, Glassmorphism)
  * FONT: Orbitron & JetBrains Mono
  * ============================================================================
@@ -87,18 +87,18 @@ interface SavedNote {
 
 /** System Prompt Default sesuai dengan instruksi spesifikasi */
 const DEFAULT_SYSTEM_PROMPT =
- "Kamu adalah BARA AGENT. Asisten AI pribadi yg cerdas dan proaktif. \n" +
+ "Kamu adalah BARA AI. Asisten AI pribadi yg cerdas dan proaktif. \n" +
  "Tugas: Bantu user menyelesaikan tugas. Gaya bahasa: Santai, panggil user 'cak'. \n" +
  "Aturan: Jangan lakukan hal ilegal. Jika tidak bisa, jelaskan kenapa.";
 
 /** Kunci penyimpanan lokal (localStorage) */
-const STORAGE_KEY_PROMPT = 'bara_agent_system_prompt';
-const STORAGE_KEY_CHAT = 'bara_agent_chat_history';
-const STORAGE_KEY_TASKS = 'bara_agent_task_history';
-const STORAGE_KEY_NOTES = 'bara_agent_saved_notes';
-const STORAGE_KEY_USERNAME = 'bara_agent_username';
+const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
+const STORAGE_KEY_CHAT = 'bara_ai_chat_history';
+const STORAGE_KEY_TASKS = 'bara_ai_task_history';
+const STORAGE_KEY_NOTES = 'bara_ai_saved_notes';
+const STORAGE_KEY_USERNAME = 'bara_ai_username';
 
-/** Daftar Tools yang tersedia untuk BARA AGENT */
+/** Daftar Tools yang tersedia untuk BARA AI */
 const AGENT_TOOLS = [
  {
  id: 'Browser',
@@ -229,51 +229,90 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const renderCode = (isModal = false) => (
+    <SyntaxHighlighter
+      language={language.toLowerCase() === 'prompt' ? 'text' : language.toLowerCase()}
+      style={vscDarkPlus}
+      customStyle={{
+        margin: 0,
+        padding: '1.25rem',
+        background: '#0A0A0C',
+        fontSize: 'inherit',
+        height: isModal ? '100%' : 'auto',
+      }}
+      wrapLongLines={false}
+    >
+      {code}
+    </SyntaxHighlighter>
+  );
+
   return (
-    <div className="my-4 rounded-xl border border-primary-500/40 bg-[#0A0A0C] overflow-hidden w-full max-w-full shadow-lg">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#141416]/90 border-b border-primary-500/30">
-        <div className="flex items-center gap-2">
-          {isPrompt ? <MessageSquare className="w-4 h-4 text-primary-400" /> : <FileCode className="w-4 h-4 text-primary-400" />}
-          <span className="text-xs font-mono text-primary-300 tracking-wider font-semibold uppercase">{title}</span>
+    <>
+      <div className="my-4 rounded-xl border border-primary-500/40 bg-[#0A0A0C] overflow-hidden w-full max-w-full shadow-lg">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#141416]/90 border-b border-primary-500/30">
+          <div className="flex items-center gap-2">
+            {isPrompt ? <MessageSquare className="w-4 h-4 text-primary-400" /> : <FileCode className="w-4 h-4 text-primary-400" />}
+            <span className="text-xs font-mono text-primary-300 tracking-wider font-semibold uppercase">{title}</span>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              type="button"
+              onClick={() => setShowFull(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Lihat {typeText}
+            </button>
+            <button 
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
+            >
+              {copied ? <CheckIcon className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Tersalin' : `Salin ${typeText}`}
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button 
-            type="button"
-            onClick={() => setShowFull(!showFull)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            {showFull ? 'Tutup' : `Lihat ${typeText}`}
-          </button>
-          <button 
-            type="button"
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
-          >
-            {copied ? <CheckIcon className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? 'Tersalin' : `Salin ${typeText}`}
-          </button>
-        </div>
-      </div>
-      <div className={`relative text-[13px] sm:text-sm font-mono leading-relaxed text-left ${showFull ? '' : 'max-h-64 overflow-hidden'}`}>
-        <SyntaxHighlighter
-          language={language.toLowerCase() === 'prompt' ? 'text' : language.toLowerCase()}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            padding: '1.25rem',
-            background: '#0A0A0C',
-            fontSize: 'inherit',
-          }}
-          wrapLongLines={false}
-        >
-          {code}
-        </SyntaxHighlighter>
-        {!showFull && (
+        <div className="relative text-[13px] sm:text-sm font-mono leading-relaxed text-left max-h-64 overflow-hidden">
+          {renderCode()}
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0A0A0C] to-transparent pointer-events-none" />
-        )}
+        </div>
       </div>
-    </div>
+
+      {showFull && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8 animate-fade-in">
+          <div className="bg-[#0A0A0C] w-full max-w-5xl max-h-full rounded-2xl border border-primary-500/40 shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-[#141416]/90 border-b border-primary-500/30 shrink-0">
+              <div className="flex items-center gap-2">
+                {isPrompt ? <MessageSquare className="w-5 h-5 text-primary-400" /> : <FileCode className="w-5 h-5 text-primary-400" />}
+                <span className="text-sm font-mono text-primary-300 tracking-wider font-semibold uppercase">{title}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  type="button"
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-xs font-mono font-medium cursor-pointer"
+                >
+                  {copied ? <CheckIcon className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Tersalin' : `Salin ${typeText}`}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowFull(false)}
+                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
+                  title="Tutup"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto text-[13px] sm:text-sm font-mono leading-relaxed text-left">
+              {renderCode(true)}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -336,9 +375,13 @@ export default function App() {
   });
   useEffect(() => {
     localStorage.setItem('bara_theme', theme);
+    const root = document.documentElement;
+    root.classList.remove('theme-blue', 'theme-green'); // purple is default in :root
+    if (theme === 'blue') root.classList.add('theme-blue');
+    if (theme === 'green') root.classList.add('theme-green');
   }, [theme]);
 
-  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   // --- STATE GOOGLE LOGIN (FIREBASE) ---
@@ -411,7 +454,7 @@ export default function App() {
  {
  id: 'welcome-1',
  sender: 'ai',
- text: 'Halo cak! Aku BARA AGENT, asisten AI futuristikmu yang aktif 24/7. Ada tugas atau perintah apa yang bisa kubantu hari ini cak?',
+ text: 'Halo cak! Aku BARA AI, asisten AI futuristikmu yang aktif 24/7. Ada tugas atau perintah apa yang bisa kubantu hari ini cak?',
  timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
  toolUsed: 'Umum'
  }
@@ -419,13 +462,13 @@ export default function App() {
  });
 
  // --- STATE BOTTOM NAV ---
- type TabType = 'chat' | 'prompt' | 'tools' | 'history' | 'account';
- const [activeTab, setActiveTab] = useState<TabType>('chat');
+ 
+ 
 
  // --- STATE INPUT PERINTAH ---
  const [inputCommand, setInputCommand] = useState<string>('');
  const [isThinking, setIsThinking] = useState<boolean>(false);
- const [activeToolBadge, setActiveToolBadge] = useState<string | null>(null);
+ 
  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState<boolean>(false);
 
  // --- STATE RIWAYAT TUGAS & CATATAN ---
@@ -604,7 +647,7 @@ export default function App() {
  {
  id: 'welcome-reset',
  sender: 'ai',
- text: 'Riwayat chat telah dibersihkan cak! BARA AGENT siap menerima perintah baru.',
+ text: 'Riwayat chat telah dibersihkan cak! BARA AI siap menerima perintah baru.',
  timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
  toolUsed: 'Umum'
  }
@@ -643,19 +686,14 @@ export default function App() {
  {/* 
  =======================================================================
  1. HEADER APLIKASI
- Logo "BARA AGENT" warna ungu dengan efek glow & status "Agent: Online"
+ Logo "BARA AI" warna ungu dengan efek glow & status "Agent: Online"
  =======================================================================
  */}
        <header className="border-b border-primary-900/50 bg-[#0A0A0A]/90 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsToolsMenuOpen(true)}
-              className="p-2 -ml-2 rounded-xl bg-primary-900/20 text-primary-400 hover:bg-primary-900/40 hover:text-primary-300 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-            </button>
+
             <div className="flex items-center gap-2">
               <div className="relative hidden sm:block">
                 <div className="absolute -inset-1 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl blur-md opacity-75 animate-pulse" />
@@ -665,7 +703,7 @@ export default function App() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-black tracking-wider text-primary-400 font-orbitron glow-primary-text">
-                  Bara Agent
+                  Bara AI
                 </h1>
                 <p className="text-[10px] text-primary-300/70 font-mono hidden sm:block">
                   [AUTONOMOUS AI SYSTEM]
@@ -700,8 +738,8 @@ export default function App() {
  KONTEN UTAMA APLIKASI (TAB BASED)
  =======================================================================
  */}
- <main className="flex-1 w-full mx-auto p-4 sm:p-6 md:p-8 flex flex-col overflow-hidden pb-28 max-w-3xl">
- {activeTab === 'chat' && (
+ <main className="flex-1 w-full mx-auto p-4 sm:p-6 md:p-8 flex flex-col overflow-hidden pb-4 max-w-3xl">
+ 
  <section className="flex flex-col flex-1 bg-[#0E0E12]/90 border border-primary-900/50 rounded-3xl overflow-hidden backdrop-blur-xl relative animate-fade-in mb-4 sm:mb-6">
  {/* Header Internal Area Chat */}
  <div className="px-4 py-3 border-b border-primary-900/30 bg-[#120D22]/60 flex items-center justify-between">
@@ -709,111 +747,9 @@ export default function App() {
  
 
  </div>
- {activeToolBadge && (
- <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-900/60 border border-primary-400/50 text-primary-200 text-[11px] font-mono animate-fade-in">
- <Zap className="w-3 h-3 text-primary-300" />
- <span>Tool Aktif: {activeToolBadge}</span>
- </div>
- )}
- </div>
-
- {/* 
- ===================================================================
- 2. CHAT AREA
- Bubble chat user ungu gelap, AI abu-abu, Avatar AI, Efek berpikir
- ===================================================================
- */}
- <div 
- ref={chatContainerRef}
- onScroll={handleScroll}
- className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
- >
- {messages.map((msg) => {
- const isAi = msg.sender === 'ai';
-
- return (
- <div
- key={msg.id}
- className={`flex items-start gap-3 sm:gap-4 ${
- isAi ? 'justify-start' : 'justify-end'
- }`}
- >
- {/* Avatar AI Agent (sebelah kiri bubble AI) */}
- {isAi && (
- <div className="flex-shrink-0 relative mt-1">
- <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary-700 to-primary-950 border border-primary-400/60 flex items-center justify-center ">
- <Bot className="w-5 h-5 text-primary-200" />
- </div>
- <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#0A0A0A]" />
- </div>
- )}
-
- {/* Bubble Chat */}
- <div
- className={`max-w-[85%] sm:max-w-[78%] rounded-2xl p-4 transition-all ${
- isAi
- ? 'bg-[#141416]/90 border border-gray-800/80 text-gray-200 backdrop-blur-sm'
- : 'bg-[#1D113A]/90 border border-primary-500/40 text-primary-100 '
- }`}
- >
- {/* Header Kecil Bubble: Nama Sender & Waktu */}
- <div className="flex items-center justify-between gap-4 mb-1.5 pb-1 border-b border-white/5">
- <span
- className={`text-xs font-semibold font-orbitron tracking-wide ${
- isAi ? 'text-primary-400' : 'text-primary-300'
- }`}
- >
- {isAi ? 'Bara Agent by Bara Official' : 'USER (Cak)'}
- </span>
- <span className="text-[10px] text-gray-400 font-mono">
- {msg.timestamp}
- </span>
- </div>
-
- {/* Badge Tool jika AI membalas pakai spesifik Tool */}
- {isAi && msg.toolUsed && msg.toolUsed !== 'Umum' && (
- <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-primary-950/80 border border-primary-500/30 text-primary-300 text-[11px] font-mono mb-2">
- <Terminal className="w-3 h-3 text-primary-400" />
- <span>Tool Dipakai: {msg.toolUsed}</span>
- </div>
- )}
-
-               {/* Isi Pesan Chat */}
-              <div className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-                {renderMessageText(msg.text)}
-              </div>
-              
-              {/* ACTION BAR (IKON COPY, THUMBS UP, THUMBS DOWN) */}
-              {isAi && (
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 text-gray-500">
-                  <button onClick={() => navigator.clipboard.writeText(msg.text)} className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Salin pesan">
-                    <Copy className="w-4 h-4" />
-                  </button>
-                  <button className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Jawaban bagus">
-                    <ThumbsUp className="w-4 h-4" />
-                  </button>
-                  <button className="p-1.5 hover:bg-white/5 rounded-lg hover:text-primary-300 transition-all cursor-pointer" title="Jawaban buruk">
-                    <ThumbsDown className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
- {/* Avatar User (sebelah kanan bubble User) */}
- {!isAi && (
- <div className="flex-shrink-0 mt-1">
- <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A1E] border border-primary-500/30 flex items-center justify-center">
- <User className="w-5 h-5 text-primary-300" />
- </div>
- </div>
- )}
- </div>
- );
- })}
-
- {/* 
- -----------------------------------------------------------------
- SIMULASI AGENT BERPIKIR ("Agent sedang berpikir...")
+      {/* 
+      -----------------------------------------------------------------
+      SIMULASI AGENT BERPIKIR ("Agent sedang berpikir...")
  Tampil ketika isThinking == true
  -----------------------------------------------------------------
  */}
@@ -982,9 +918,6 @@ export default function App() {
  </form>
  </div>
  </section>
- )}
-
- {/* SIDEBAR TABS */}
  
  </main>
 
@@ -1093,87 +1026,7 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* Tools Modal (Hamburger Menu) */}
-      {isToolsMenuOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-start bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-[#0E0E12]/95 border border-primary-900/50 rounded-2xl w-full max-w-sm overflow-hidden animate-fade-in flex flex-col max-h-full">
-            <div className="flex items-center justify-between p-4 border-b border-primary-900/30 shrink-0">
-              <h2 className="text-lg font-orbitron font-bold text-primary-400">Tools Bara Agent</h2>
-              <button onClick={() => setIsToolsMenuOpen(false)} className="p-1 rounded-lg hover:bg-white/5 text-gray-400 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto flex flex-col gap-3">
-              <p className="text-sm text-gray-400 mb-2">Pilih tool untuk digunakan agent dalam merespons instruksi selanjutnya.</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { id: 'Umum', icon: Globe, desc: 'Percakapan AI Umum' },
-                  { id: 'Browser', icon: Globe, desc: 'Pencarian Internet' },
-                  { id: 'Kalkulator', icon: Calculator, desc: 'Hitung Matematika' },
-                  { id: 'Sistem', icon: Terminal, desc: 'Operasi Sistem' },
-                  { id: 'Deploy Tools', icon: Activity, desc: 'Github & Deploy' },
-                  { id: 'Error', icon: Wrench, desc: 'Troubleshooting' }
-                ].map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setActiveToolBadge(t.id);
-                      setIsToolsMenuOpen(false);
-                    }}
-                    className={`p-3 rounded-xl border flex flex-col gap-2 items-start transition-all cursor-pointer ${
-                      activeToolBadge === t.id 
-                        ? 'bg-primary-900/40 border-primary-500' 
-                        : 'bg-primary-900/10 border-primary-900/30 hover:border-primary-500/50 hover:bg-primary-900/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <t.icon className={`w-4 h-4 ${activeToolBadge === t.id ? 'text-primary-300' : 'text-gray-400'}`} />
-                      <span className={`text-sm font-semibold ${activeToolBadge === t.id ? 'text-primary-300' : 'text-gray-300'}`}>{t.id}</span>
-                    </div>
-                    <span className="text-[10px] text-gray-500">{t.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-<nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-primary-900/50 backdrop-blur-lg z-50 pb-safe">
- <div className="max-w-3xl mx-auto px-2 py-1.5 flex items-center justify-between">
- {[
- { id: 'chat', label: 'Chat', icon: MessageSquare },
- 
- 
- { id: 'history', label: 'Riwayat', icon: History },
- 
- ].map((tab) => {
- const Icon = tab.icon;
- const isActive = activeTab === tab.id;
- return (
- <button
- key={tab.id}
- onClick={() => setActiveTab(tab.id as TabType)}
- className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all flex-1 ${
- isActive ? 'text-primary-400' : 'text-gray-500 hover:text-primary-300'
- }`}
- >
- <div className={`p-1.5 rounded-full transition-all ${
- isActive ? 'bg-primary-900/40 ' : 'bg-transparent'
- }`}>
- <Icon className={`w-5 h-5 ${isActive ? 'glow-primary-sm' : ''}`} />
- </div>
- <span className={`text-[10px] font-mono tracking-wider ${isActive ? 'font-bold' : ''}`}>
- {tab.label}
- </span>
- </button>
- );
- })}
- </div>
- </nav>
- </div>
+</div>
  );
 }
 

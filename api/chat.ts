@@ -44,7 +44,7 @@ export default async function handler(req: any, res: any) {
   const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
 
 <system_prompt_dari_user>
-${systemPrompt || "Kamu adalah BARA AGENT. Jawab dengan santai, gunakan kata sapaan 'cak'."}
+${systemPrompt || "Kamu adalah BARA AI. Jawab dengan santai, gunakan kata sapaan 'cak'."}
 </system_prompt_dari_user>
 
 ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
