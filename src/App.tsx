@@ -820,11 +820,7 @@ export default function App() {
  
  <section className="flex flex-col flex-1 bg-[#0E0E12]/90 border border-primary-900/50 rounded-3xl overflow-hidden backdrop-blur-xl relative animate-fade-in mb-4 sm:mb-6">
  {/* Header Internal Area Chat */}
-  <div className="px-4 py-3 border-b border-primary-900/30 bg-[#120D22]/60 flex items-center justify-between">
-   <div className="flex items-center gap-2">
-     <h2 className="text-sm font-semibold text-primary-300 font-orbitron">Bara AI Terminal</h2>
-   </div>
- </div>
+ 
 
  {/* 2. CHAT AREA */}
  <div 
@@ -870,12 +866,29 @@ export default function App() {
                {renderMessageText(msg.text)}
              </div>
              
-             {isAi && msg.toolUsed && (
-               <div className="mt-3 pt-3 border-t border-primary-900/30 flex items-center justify-between">
-                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary-900/20 border border-primary-900/30 text-[10px] font-mono text-primary-400">
-                   <Wrench className="w-3 h-3" />
-                   <span>Tool: {msg.toolUsed}</span>
-                 </div>
+             {isAi && (
+               <div className="mt-3 pt-3 flex items-center gap-2">
+                 <button 
+                   onClick={() => handleCopy(msg.text)}
+                   className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                   title="Salin Pesan"
+                 >
+                   <Copy className="w-4 h-4" />
+                 </button>
+                 <button 
+                   onClick={() => handleFeedback(msg.id, 'up')}
+                   className={`p-1.5 rounded-md hover:bg-white/10 transition-colors ${msg.feedback === 'up' ? 'text-green-500' : 'text-gray-400 hover:text-gray-200'}`}
+                   title="Bagus"
+                 >
+                   <ThumbsUp className="w-4 h-4" />
+                 </button>
+                 <button 
+                   onClick={() => handleFeedback(msg.id, 'down')}
+                   className={`p-1.5 rounded-md hover:bg-white/10 transition-colors ${msg.feedback === 'down' ? 'text-red-500' : 'text-gray-400 hover:text-gray-200'}`}
+                   title="Buruk"
+                 >
+                   <ThumbsDown className="w-4 h-4" />
+                 </button>
                </div>
              )}
            </div>
@@ -949,40 +962,7 @@ export default function App() {
  ===================================================================
  */}
  <div className="p-3 sm:p-4 bg-[#110D1E]/90 border-t border-primary-900/50 backdrop-blur-lg">
- {/* Tombol Prompt Cepat untuk Uji Coba Langsung */}
- <div className="flex items-center gap-2 mb-2.5 overflow-x-auto pb-1">
- <span className="text-[11px] font-mono text-primary-300/70 whitespace-nowrap">
- ⚡ Coba Perintah:
- </span>
- <button
- onClick={() => handleSendCommand('hitung 125 * 8')}
- disabled={isThinking}
- className="px-2.5 py-1 rounded-full bg-[#18112E] hover:bg-primary-900/60 border border-primary-500/30 text-primary-200 text-[11px] font-mono whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
- >
- + Hitung 125 * 8 (Kalkulator)
- </button>
- <button
- onClick={() => handleSendCommand('cari berita terbaru teknologi AI hari ini')}
- disabled={isThinking}
- className="px-2.5 py-1 rounded-full bg-[#18112E] hover:bg-primary-900/60 border border-primary-500/30 text-primary-200 text-[11px] font-mono whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
- >
- + Cari Info AI (Browser)
- </button>
- <button
- onClick={() => handleSendCommand('catat: besok meeting jam 9 pagi')}
- disabled={isThinking}
- className="px-2.5 py-1 rounded-full bg-[#18112E] hover:bg-primary-900/60 border border-primary-500/30 text-primary-200 text-[11px] font-mono whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
- >
- + Catat Jadwal (Catatan)
- </button>
- <button
- onClick={() => handleSendCommand('coba hack server bank sekarang')}
- disabled={isThinking}
- className="px-2.5 py-1 rounded-full bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 text-red-300 text-[11px] font-mono whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
- >
- + Cek Hal Ilegal
- </button>
- </div>
+ 
 
  {/* Kotak Input Textarea & Tombol Kirim */}
  <form
