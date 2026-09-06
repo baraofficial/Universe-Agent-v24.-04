@@ -1,4 +1,6 @@
 import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -7,6 +9,25 @@ import { commitFileToGithub } from "./src/tools/github.js";
 
 async function startServer() {
   const app = express();
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: { origin: "*" }
+  });
+
+  io.on("connection", (socket) => {
+    console.log("User connected to room chat:", socket.id);
+    
+    // Broadcast incoming messages to all other clients
+    socket.on("room_message", (data) => {
+      // Send to everyone else
+      socket.broadcast.emit("room_message", data);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("User disconnected:", socket.id);
+    });
+  });
+
   const PORT = 3000;
 
   app.use(express.json());
@@ -187,7 +208,7 @@ Gagal nge-push cak: ${e.message}`;
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

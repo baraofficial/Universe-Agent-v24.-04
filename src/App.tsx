@@ -1,5 +1,3 @@
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { auth, googleProvider } from './firebase';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -15,6 +13,8 @@ import { auth, googleProvider } from './firebase';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
+import { io, Socket } from 'socket.io-client';
 
 import {
  Wrench,
@@ -45,11 +45,11 @@ import {
  Database as DatabaseIcon,
  MessageSquare,
  History,
- UserCircle,
+ UserCircle, Users, Image as ImageIcon2, Folder,
  Plus,
  Upload,
  Camera
-, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon, MoreVertical } from 'lucide-react';
+, Menu, Reply, X, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon, MoreVertical } from 'lucide-react';
 
 // ============================================================================
 // STRUKTUR DATA (TYPES & INTERFACES)
@@ -390,7 +390,7 @@ export default function App() {
     
     let chatContent = "# Bara AI - Chat History\n\n";
     messages.forEach(msg => {
-      const senderName = msg.sender === 'user' ? (googleUser?.displayName || 'User (Cak)') : 'Bara AI';
+      const senderName = msg.sender === 'user' ? (userName || 'User (Cak)') : 'Bara AI';
       chatContent += `[${msg.timestamp}] ${senderName}:\n${msg.text}\n\n`;
     });
     
@@ -406,41 +406,9 @@ export default function App() {
     setIsTopMenuOpen(false);
   };
 
-  // --- STATE GOOGLE LOGIN (FIREBASE) ---
-  const [googleUser, setGoogleUser] = useState<any>(null);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setGoogleUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
 
-  const handleFirebaseGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      setMessages(prev => [...prev, {
-        id: `sys-${Date.now()}`,
-        sender: 'ai',
-        text: `Login berhasil cak! Selamat datang ${user.displayName}.`,
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        toolUsed: 'Sistem'
-      }]);
-    } catch (error: any) {
-      console.error("Firebase Login Error:", error);
-      alert("Gagal login: " + error.message);
-    }
-  };
 
-  const handleFirebaseLogout = async () => {
-    try {
-      await signOut(auth);
-      setGoogleUser(null);
-    } catch (error: any) {
-      console.error("Firebase Logout Error:", error);
-    }
-  };
 
   const [systemPrompt, setSystemPrompt] = useState<string>(() => {
  const saved = localStorage.getItem(STORAGE_KEY_PROMPT);
@@ -493,7 +461,79 @@ export default function App() {
  ];
  });
 
- // --- STATE BOTTOM NAV ---
+ 
+  // --- STATE ROOM CHAT ---
+  const [chatMode, setChatMode] = useState<'ai' | 'room'>('ai');
+  const [roomMessages, setRoomMessages] = useState<any[]>([]);
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  // --- ROOM CHAT SPECIFIC STATES ---
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [roomWallpaper, setRoomWallpaper] = useState<string | null>(null);
+  const [roomWallpaperType, setRoomWallpaperType] = useState<'image' | 'video' | null>(null);
+  const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
+
+  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const type = file.type.startsWith('video/') ? 'video' : 'image';
+      
+      if (type === 'video') {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = function() {
+          if (video.duration > 21) { // 21 to give a 1s buffer for 20s videos
+            alert("Durasi video maksimal 20 detik cak!");
+            URL.revokeObjectURL(video.src);
+            return;
+          }
+          setRoomWallpaperType(type);
+          setRoomWallpaper(video.src); // Gunakan object URL agar ringan dan cepat
+        }
+        video.src = URL.createObjectURL(file);
+      } else {
+        setRoomWallpaperType(type);
+        const imgUrl = URL.createObjectURL(file);
+        setRoomWallpaper(imgUrl);
+      }
+    }
+  };
+
+  
+  useEffect(() => {
+    const newSocket = io();
+    setSocket(newSocket);
+    
+    newSocket.on("room_message", (msg) => {
+      setRoomMessages(prev => [...prev, msg]);
+    });
+    
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  const handleSendRoomMessage = (text: string, file?: any) => {
+    if (!text.trim() && !file) return;
+    
+    const newMsg = {
+      id: `room-${Date.now()}`,
+      sender: 'user',
+      senderName: userName || 'Anonim',
+      text: text,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      isMe: true,
+      file: file ? { name: file.name } : null,
+      replyTo: replyingTo ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text } : null
+    };
+    
+    setRoomMessages(prev => [...prev, newMsg]);
+    socket?.emit("room_message", { ...newMsg, isMe: false });
+    setReplyingTo(null);
+  };
+  
+  // --- STATE BOTTOM NAV ---
  
  
 
@@ -715,6 +755,15 @@ export default function App() {
  // ============================================================================
  return (
  <div className={`min-h-screen bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
+        {chatMode === 'room' && roomWallpaper && (
+          <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
+            {roomWallpaperType === 'video' ? (
+              <video autoPlay loop muted playsInline src={roomWallpaper} className="w-full h-full object-cover" />
+            ) : (
+              <img src={roomWallpaper} alt="Room Wallpaper" className="w-full h-full object-cover" />
+            )}
+          </div>
+        )}
  {/* 
  =======================================================================
  1. HEADER APLIKASI
@@ -749,6 +798,18 @@ export default function App() {
                   <div className="p-4 flex flex-col gap-3">
                     <button 
                       onClick={() => {
+                        setChatMode('room');
+                        setIsTopMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 rounded-xl bg-[#1A1A24] hover:bg-primary-900/30 border border-primary-500/30 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium"
+                    >
+                      <Users className="w-5 h-5 text-primary-400" />
+                      Room Chat
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setChatMode('ai');
                         handleClearChat();
                         setIsTopMenuOpen(false);
                       }}
@@ -774,18 +835,27 @@ export default function App() {
           <div className="flex-1 flex justify-center">
             <div className="px-6 py-2 rounded-full border border-primary-500/40 bg-[#120F1D]/50 flex items-center justify-center">
               <h1 className="text-sm font-bold tracking-widest text-primary-400 font-mono uppercase">
-                Bara AI
+                {chatMode === 'ai' ? 'Bara AI' : 'Room Chat'}
               </h1>
             </div>
           </div>
 
           <div className="w-12 h-12 flex items-center justify-end">
-            <button 
-              onClick={() => setIsSettingsMenuOpen(true)}
-              className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
+            {chatMode === 'room' ? (
+              <button 
+                onClick={() => setIsRoomSettingsOpen(true)}
+                className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            ) : (
+              <button 
+                onClick={() => setIsSettingsMenuOpen(true)}
+                className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -807,7 +877,7 @@ export default function App() {
    onScroll={handleScroll}
    className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
  >
-   {messages.map((msg) => {
+   {chatMode === 'ai' && messages.map((msg) => {
      const isAi = msg.sender === 'ai';
      return (
        <div 
@@ -832,7 +902,7 @@ export default function App() {
          }`}>
            <div className="flex items-center gap-2 px-1">
              <span className="text-[10px] sm:text-xs font-mono font-medium text-gray-500">
-               {isAi ? 'Bara AI' : (googleUser?.displayName || 'USER (Cak)')}
+               {isAi ? 'Bara AI' : (userName || 'USER (Cak)')}
              </span>
              <span className="text-[9px] sm:text-[10px] font-mono text-gray-600">{msg.timestamp}</span>
            </div>
@@ -877,15 +947,74 @@ export default function App() {
          {!isAi && (
            <div className="flex-shrink-0 mt-1">
              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
-               {googleUser?.photoURL ? (
-                 <img src={googleUser.photoURL} alt="User" className="w-full h-full object-cover" />
-               ) : (
-                 <UserCircle className="w-6 h-6 text-primary-500/50" />
-               )}
+               <UserCircle className="w-6 h-6 text-primary-500/50" />
              </div>
            </div>
          )}
        </div>
+     );
+   })}
+   
+   {chatMode === 'room' && roomMessages.map((msg) => {
+     const isMe = msg.isMe;
+     return (
+       <motion.div 
+         key={msg.id}
+         className={`flex items-start gap-3 sm:gap-4 ${isMe ? 'justify-end' : 'justify-start'}`}
+         drag={!isMe ? "x" : false}
+         dragConstraints={{ left: 0, right: 0 }}
+         dragElastic={{ left: 0.5, right: 0 }}
+         onDragEnd={(e, info) => {
+           if (!isMe && info.offset.x < -40) {
+             setReplyingTo(msg);
+           }
+         }}
+       >
+         {!isMe && (
+           <div className="flex-shrink-0 mt-1">
+             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
+               <UserCircle className="w-6 h-6 text-primary-500/50" />
+             </div>
+           </div>
+         )}
+         
+         <div className={`flex flex-col gap-1 max-w-[85%] sm:max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
+           <div className="flex items-center gap-2 px-1">
+             <span className="text-[10px] sm:text-xs font-mono font-medium text-gray-500">
+               {msg.senderName}
+             </span>
+             <span className="text-[9px] sm:text-[10px] font-mono text-gray-600">{msg.timestamp}</span>
+           </div>
+           <div className={`relative px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl sm:rounded-3xl shadow-sm text-sm sm:text-base leading-relaxed ${
+             !isMe
+               ? 'bg-[#1A1A24]/90 border border-primary-900/40 text-gray-200 rounded-tl-sm' 
+               : 'bg-primary-900/20 border border-primary-500/30 text-white rounded-tr-sm'
+           }`}>
+             {msg.replyTo && (
+               <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-primary-500 text-xs">
+                 <div className="text-primary-300 font-bold mb-0.5">{msg.replyTo.senderName}</div>
+                 <div className="text-gray-300 line-clamp-2">{msg.replyTo.text}</div>
+               </div>
+             )}
+             <div className="whitespace-pre-wrap">
+               {msg.text}
+             </div>
+             {msg.file && (
+               <div className="mt-2 text-xs text-primary-300 flex items-center gap-1">
+                 <Folder className="w-3 h-3" /> {msg.file.name}
+               </div>
+             )}
+           </div>
+         </div>
+         
+         {isMe && (
+           <div className="flex-shrink-0 mt-1">
+             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
+               <UserCircle className="w-6 h-6 text-primary-500/50" />
+             </div>
+           </div>
+         )}
+       </motion.div>
      );
    })}
 
@@ -897,7 +1026,7 @@ export default function App() {
  Tampil ketika isThinking == true
  -----------------------------------------------------------------
  */}
- {isThinking && (
+ {isThinking && chatMode === 'ai' && (
  <div className="flex items-start gap-3 sm:gap-4 justify-start animate-fade-in">
  {/* Avatar AI animasi pulse */}
  <div className="flex-shrink-0 mt-1">
@@ -934,7 +1063,7 @@ export default function App() {
  <ArrowDown className="w-5 h-5" />
  </button>
  )}
-           {/* 
+                     {/* 
           ===================================================================
           3. INPUT AREA
           ===================================================================
@@ -944,25 +1073,86 @@ export default function App() {
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
-                handleSendCommand();
+                if (chatMode === 'ai') {
+                  handleSendCommand();
+                } else {
+                  handleSendRoomMessage(inputCommand);
+                  setInputCommand('');
+                }
               }}
               className="flex flex-col gap-3 relative max-w-4xl mx-auto"
             >
+              {replyingTo && chatMode === 'room' && (
+                <div className="absolute -top-12 left-0 right-0 px-4 py-2 bg-primary-900/90 border border-primary-500/50 rounded-2xl backdrop-blur-xl flex items-center justify-between text-sm shadow-xl z-10 mx-auto max-w-4xl w-full">
+                  <div className="flex flex-col overflow-hidden max-w-[90%]">
+                    <span className="text-primary-400 font-bold text-xs flex items-center gap-1"><Reply className="w-3 h-3"/> Membalas {replyingTo.senderName}</span>
+                    <span className="text-gray-300 truncate text-xs">{replyingTo.text}</span>
+                  </div>
+                  <button type="button" onClick={() => setReplyingTo(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-400 cursor-pointer">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               <div className="relative flex items-center px-2 py-2 bg-[#120F1D]/80 border border-primary-500/30 rounded-3xl shadow-lg transition-all focus-within:border-primary-500/60 focus-within:bg-[#151025]/90">
+                
                 {/* Attachment Button */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  className="hidden" 
-                />
-                <button
-                  type="button"
-                  onClick={handleFileUploadClick}
-                  className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-primary-900/20 text-primary-400 hover:bg-primary-500/20 transition-colors cursor-pointer ml-1"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
+                <div className="relative shrink-0 flex items-center">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    className="hidden" 
+                  />
+                  
+                  {chatMode === 'ai' ? (
+                    <button
+                      type="button"
+                      onClick={handleFileUploadClick}
+                      className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-primary-900/20 text-primary-400 hover:bg-primary-500/20 transition-colors cursor-pointer ml-1"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+                        className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-primary-900/20 text-primary-400 hover:bg-primary-500/20 transition-colors cursor-pointer ml-1"
+                      >
+                        <Plus className={`w-5 h-5 transition-transform duration-300 ${isAttachmentMenuOpen ? 'rotate-45' : ''}`} />
+                      </button>
+                      
+                      {isAttachmentMenuOpen && (
+                        <div className="absolute bottom-full left-0 mb-3 w-40 bg-[#141416]/95 backdrop-blur-xl border border-primary-500/40 rounded-2xl overflow-hidden animate-fade-in p-2 flex flex-col gap-1 z-50">
+                          <button 
+                            type="button"
+                            onClick={() => { setIsAttachmentMenuOpen(false); handleFileUploadClick(); }}
+                            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:text-primary-300 hover:bg-primary-900/30 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Camera className="w-4 h-4 text-primary-400" />
+                            <span>Kamera</span>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => { setIsAttachmentMenuOpen(false); handleFileUploadClick(); }}
+                            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:text-primary-300 hover:bg-primary-900/30 rounded-xl transition-all cursor-pointer"
+                          >
+                            <ImageIcon2 className="w-4 h-4 text-primary-400" />
+                            <span>Galeri</span>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => { setIsAttachmentMenuOpen(false); handleFileUploadClick(); }}
+                            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:text-primary-300 hover:bg-primary-900/30 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Folder className="w-4 h-4 text-primary-400" />
+                            <span>File</span>
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {/* Textarea */}
                 <div className="flex-1 px-3 py-1 flex items-center">
@@ -972,27 +1162,32 @@ export default function App() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        handleSendCommand();
+                        if (chatMode === 'ai') {
+                          handleSendCommand();
+                        } else {
+                          handleSendRoomMessage(inputCommand);
+                          setInputCommand('');
+                        }
                       }
                     }}
-                    placeholder="Message Bara AI..."
+                    placeholder={chatMode === 'ai' ? "Message Bara AI..." : "Kirim pesan ke room..."}
                     className="w-full bg-transparent text-gray-200 focus:outline-none resize-none overflow-hidden min-h-[24px] h-[24px] pt-[2px] text-sm sm:text-base placeholder-gray-500 font-mono tracking-wide"
                     rows={1}
-                    disabled={isThinking}
+                    disabled={isThinking && chatMode === 'ai'}
                   />
                 </div>
 
                 {/* Tombol Kirim */}
                 <button
                   type="submit"
-                  disabled={isThinking || !inputCommand.trim()}
+                  disabled={(isThinking && chatMode === 'ai') || !inputCommand.trim()}
                   className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-full transition-all cursor-pointer mr-1 ${
                     inputCommand.trim()
                       ? 'bg-primary-700 hover:bg-primary-600 text-white' 
                       : 'bg-primary-900/30 text-primary-500/50'
                   }`}
                 >
-                  {isThinking ? (
+                  {(isThinking && chatMode === 'ai') ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <Send className={`w-4 h-4 ${inputCommand.trim() ? 'ml-0.5 -mt-0.5' : 'ml-0.5'}`} />
@@ -1000,7 +1195,11 @@ export default function App() {
                 </button>
               </div>
               <div className="text-center">
-                <p className="text-[10px] sm:text-xs text-gray-500 font-mono">Bara AI dapat membuat kesalahan. Periksa info penting.</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
+                  {chatMode === 'ai' 
+                    ? "Bara AI dapat membuat kesalahan. Periksa info penting." 
+                    : "Room Chat: Terhubung secara real-time ke semua klien."}
+                </p>
               </div>
             </form>
           </div>
@@ -1014,6 +1213,49 @@ export default function App() {
  =======================================================================
  */}
  
+      {/* Room Settings Modal */}
+      {isRoomSettingsOpen && chatMode === 'room' && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setIsRoomSettingsOpen(false)}>
+          <div 
+            className="w-full max-w-sm bg-[#141416] border border-primary-900/50 rounded-3xl shadow-2xl overflow-hidden mt-12 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-primary-900/30 flex items-center justify-between">
+              <h2 className="text-lg font-orbitron font-bold text-white">Setting Room Chat</h2>
+              <button onClick={() => setIsRoomSettingsOpen(false)} className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-300">Wallpaper Background</label>
+                <input 
+                  type="file" 
+                  ref={wallpaperInputRef} 
+                  onChange={handleWallpaperChange} 
+                  accept="image/*,video/*"
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => wallpaperInputRef.current?.click()}
+                  className="w-full py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors cursor-pointer"
+                >
+                  Ganti Foto / Video (Maks 20s)
+                </button>
+                {roomWallpaper && (
+                  <button 
+                    onClick={() => { setRoomWallpaper(null); setRoomWallpaperType(null); }}
+                    className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-medium transition-colors mt-2 cursor-pointer"
+                  >
+                    Hapus Wallpaper
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Settings Modal (Gear Icon) */}
       {isSettingsMenuOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4">
@@ -1028,26 +1270,7 @@ export default function App() {
             <div className="p-5 overflow-y-auto flex flex-col gap-6">
               {/* Google Login */}
               <div className="flex flex-col gap-3">
-                <h3 className="text-xs font-mono text-primary-300 uppercase">Akun Google</h3>
-                {googleUser ? (
-                  <div className="flex items-center justify-between p-3 bg-primary-900/10 border border-primary-500/20 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <img src={googleUser.picture} alt="Profile" className="w-10 h-10 rounded-full border border-primary-500" referrerPolicy="no-referrer" />
-                      <div>
-                        <p className="font-semibold text-sm">{googleUser.displayName}</p>
-                        <p className="text-xs text-gray-400">{googleUser.email}</p>
-                      </div>
-                    </div>
-                    <button onClick={handleFirebaseLogout} className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors cursor-pointer" title="Logout">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={handleFirebaseGoogleLogin} className="flex items-center justify-center gap-2 bg-white text-gray-900 hover:bg-gray-100 rounded-full py-2.5 px-4 font-medium text-sm transition-colors w-max cursor-pointer">
-                    <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                    Sign in with Google
-                  </button>
-                )}
+
               </div>
 
               {/* Edit Username */}
