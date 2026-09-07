@@ -23,6 +23,10 @@ async function startServer() {
       socket.broadcast.emit("room_message", data);
     });
 
+    socket.on("update_room_message", (data) => {
+      socket.broadcast.emit("update_room_message", data);
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
     });

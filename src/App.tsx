@@ -45,7 +45,7 @@ import {
  Database as DatabaseIcon,
  MessageSquare,
  History,
- UserCircle, Users, Image as ImageIcon2, Folder,
+ UserCircle, Users, Image as ImageIcon2, Folder, Star, Pin, LogOut, Pencil,
  Plus,
  Upload,
  Camera
@@ -467,11 +467,32 @@ export default function App() {
   const [roomMessages, setRoomMessages] = useState<any[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  // --- UI STATE POPUPS ---
+  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  // --- ROOM CHAT INTERACTION STATE ---
+  const [selectedRoomMessage, setSelectedRoomMessage] = useState<any>(null);
+  const [editingRoomMessageId, setEditingRoomMessageId] = useState<string | null>(null);
+  
+  const handleRoomMessageAction = (action: 'delete' | 'star' | 'pin') => {
+    if (!selectedRoomMessage) return;
+    
+    // Simulate updating local state for star/pin
+    if (action === 'delete') {
+       setRoomMessages(prev => prev.filter(m => m.id !== selectedRoomMessage.id));
+    } else {
+       setRoomMessages(prev => prev.map(m => m.id === selectedRoomMessage.id ? { ...m, [action]: !m[action] } : m));
+    }
+    setSelectedRoomMessage(null);
+  };
+
   // --- ROOM CHAT SPECIFIC STATES ---
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [roomWallpaper, setRoomWallpaper] = useState<string | null>(null);
   const [roomWallpaperType, setRoomWallpaperType] = useState<'image' | 'video' | null>(null);
   const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
+  const [isStarredMessagesOpen, setIsStarredMessagesOpen] = useState(false);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
 
   const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -509,6 +530,10 @@ export default function App() {
       setRoomMessages(prev => [...prev, msg]);
     });
     
+    newSocket.on("update_room_message", (updatedMsg) => {
+      setRoomMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...m, text: updatedMsg.text, isEdited: true } : m));
+    });
+    
     return () => {
       newSocket.close();
     };
@@ -516,6 +541,15 @@ export default function App() {
 
   const handleSendRoomMessage = (text: string, file?: any) => {
     if (!text.trim() && !file) return;
+    
+    if (editingRoomMessageId) {
+      setRoomMessages(prev => prev.map(msg => 
+        msg.id === editingRoomMessageId ? { ...msg, text: text, isEdited: true } : msg
+      ));
+      socket?.emit("update_room_message", { id: editingRoomMessageId, text: text });
+      setEditingRoomMessageId(null);
+      return;
+    }
     
     const newMsg = {
       id: `room-${Date.now()}`,
@@ -801,31 +835,35 @@ export default function App() {
                         setChatMode('room');
                         setIsTopMenuOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 rounded-xl bg-[#1A1A24] hover:bg-primary-900/30 border border-primary-500/30 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium"
+                      className={`w-full text-left px-4 py-3 rounded-xl hover:bg-primary-900/30 border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${chatMode === 'room' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white'}`}
                     >
                       <Users className="w-5 h-5 text-primary-400" />
                       Room Chat
                     </button>
-                    
+
                     <button 
                       onClick={() => {
                         setChatMode('ai');
-                        handleClearChat();
                         setIsTopMenuOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium"
+                      className={`w-full text-left px-4 py-3 rounded-xl hover:bg-primary-900/30 border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${chatMode === 'ai' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white'}`}
                     >
-                      <Plus className="w-5 h-5" />
-                      New Chat
+                      <Bot className="w-5 h-5 text-primary-400" />
+                      Bara AI
                     </button>
                     
-                    <button 
-                      onClick={handleSaveChatFile}
-                      className="w-full text-left px-4 py-3 rounded-xl border border-primary-900/50 bg-primary-900/10 hover:bg-primary-900/30 text-primary-300 flex items-center gap-3 transition-colors cursor-pointer"
-                    >
-                      <Download className="w-5 h-5" />
-                      Simpan Chat (.md)
-                    </button>
+                    {chatMode === 'ai' && (
+                      <button 
+                        onClick={() => {
+                          handleClearChat();
+                          setIsTopMenuOpen(false);
+                        }}
+                        className="w-full mt-2 text-left px-4 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium shadow-lg"
+                      >
+                        <Plus className="w-5 h-5" />
+                        New Chat
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
@@ -985,11 +1023,13 @@ export default function App() {
              </span>
              <span className="text-[9px] sm:text-[10px] font-mono text-gray-600">{msg.timestamp}</span>
            </div>
-           <div className={`relative px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl sm:rounded-3xl shadow-sm text-sm sm:text-base leading-relaxed ${
+           <div 
+             onContextMenu={(e) => { e.preventDefault(); setSelectedRoomMessage(msg); }}
+             className={`relative px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl sm:rounded-3xl shadow-sm text-sm sm:text-base leading-relaxed cursor-pointer transition-colors hover:brightness-110 ${
              !isMe
                ? 'bg-[#1A1A24]/90 border border-primary-900/40 text-gray-200 rounded-tl-sm' 
                : 'bg-primary-900/20 border border-primary-500/30 text-white rounded-tr-sm'
-           }`}>
+           } ${msg.pin ? 'border-amber-500/50' : ''}`}>
              {msg.replyTo && (
                <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-primary-500 text-xs">
                  <div className="text-primary-300 font-bold mb-0.5">{msg.replyTo.senderName}</div>
@@ -999,10 +1039,28 @@ export default function App() {
              <div className="whitespace-pre-wrap">
                {msg.text}
              </div>
+             {msg.isEdited && <div className="text-[10px] text-gray-500 mt-1 italic">(diedit)</div>}
              {msg.file && (
                <div className="mt-2 text-xs text-primary-300 flex items-center gap-1">
                  <Folder className="w-3 h-3" /> {msg.file.name}
                </div>
+             )}
+           </div>
+           {/* Pencil Icon & Indicators */}
+           <div className={`flex items-center gap-2 px-1 mt-0.5 text-gray-500 ${isMe ? 'justify-end' : 'justify-start'}`}>
+             {msg.star && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
+             {msg.pin && <Pin className="w-3 h-3 text-amber-500 fill-amber-500" />}
+             {isMe && (
+               <button 
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   setEditingRoomMessageId(msg.id);
+                   setInputCommand(msg.text);
+                 }}
+                 className="p-0.5 hover:text-primary-400 transition-colors cursor-pointer"
+               >
+                 <Pencil className="w-3 h-3" />
+               </button>
              )}
            </div>
          </div>
@@ -1082,7 +1140,17 @@ export default function App() {
               }}
               className="flex flex-col gap-3 relative max-w-4xl mx-auto"
             >
-              {replyingTo && chatMode === 'room' && (
+              {editingRoomMessageId && chatMode === 'room' && (
+                <div className="absolute -top-12 left-0 right-0 px-4 py-2 bg-primary-900/90 border border-primary-500/50 rounded-2xl backdrop-blur-xl flex items-center justify-between text-sm shadow-xl z-10 mx-auto max-w-4xl w-full">
+                  <div className="flex flex-col overflow-hidden max-w-[90%]">
+                    <span className="text-primary-400 font-bold text-xs flex items-center gap-1"><Pencil className="w-3 h-3"/> Mengedit Pesan</span>
+                  </div>
+                  <button type="button" onClick={() => { setEditingRoomMessageId(null); setInputCommand(''); }} className="p-1 hover:bg-white/10 rounded-full text-gray-400 cursor-pointer">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              {replyingTo && !editingRoomMessageId && chatMode === 'room' && (
                 <div className="absolute -top-12 left-0 right-0 px-4 py-2 bg-primary-900/90 border border-primary-500/50 rounded-2xl backdrop-blur-xl flex items-center justify-between text-sm shadow-xl z-10 mx-auto max-w-4xl w-full">
                   <div className="flex flex-col overflow-hidden max-w-[90%]">
                     <span className="text-primary-400 font-bold text-xs flex items-center gap-1"><Reply className="w-3 h-3"/> Membalas {replyingTo.senderName}</span>
@@ -1213,6 +1281,43 @@ export default function App() {
  =======================================================================
  */}
  
+      {/* Room Message Action Popup */}
+      {selectedRoomMessage && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setSelectedRoomMessage(null)}>
+          <div 
+            className="w-full max-w-xs bg-[#141416] border border-primary-900/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col scale-100 animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-primary-900/30">
+              <p className="text-gray-300 text-sm line-clamp-2 italic">"{selectedRoomMessage.text}"</p>
+            </div>
+            <div className="p-2 flex justify-around">
+              <button 
+                onClick={() => handleRoomMessageAction('delete')}
+                className="flex-1 flex flex-col items-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-5 h-5" />
+                <span className="text-xs font-medium">Hapus</span>
+              </button>
+              <button 
+                onClick={() => handleRoomMessageAction('star')}
+                className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.star ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-white/5'}`}
+              >
+                <Star className={`w-5 h-5 ${selectedRoomMessage.star ? 'fill-current' : ''}`} />
+                <span className="text-xs font-medium">Bintang</span>
+              </button>
+              <button 
+                onClick={() => handleRoomMessageAction('pin')}
+                className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.pin ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 hover:bg-white/5'}`}
+              >
+                <Pin className={`w-5 h-5 ${selectedRoomMessage.pin ? 'fill-current' : ''}`} />
+                <span className="text-xs font-medium">Sematkan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Room Settings Modal */}
       {isRoomSettingsOpen && chatMode === 'room' && (
         <div className="fixed inset-0 z-[100] flex items-start justify-end bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setIsRoomSettingsOpen(false)}>
@@ -1251,9 +1356,67 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              <div className="pt-4 border-t border-primary-900/30">
+                <button 
+                  onClick={() => {
+                    setIsRoomSettingsOpen(false);
+                    setIsStarredMessagesOpen(true);
+                  }}
+                  className="w-full py-3 rounded-xl border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Star className="w-5 h-5 fill-current" />
+                  Pesan Berbintang
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
+      )}
+
+      {/* Starred Messages Sidebar */}
+      {isStarredMessagesOpen && chatMode === 'room' && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsStarredMessagesOpen(false)}></div>
+          <div className="fixed inset-y-0 right-0 w-80 bg-[#09090b] border-l border-primary-500/30 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-out translate-x-0">
+            <div className="p-4 border-b border-primary-900/30 flex items-center justify-between">
+              <h2 className="text-lg font-orbitron font-bold text-yellow-400 flex items-center gap-2">
+                <Star className="w-5 h-5 fill-current" />
+                Pesan Berbintang
+              </h2>
+              <button onClick={() => setIsStarredMessagesOpen(false)} className="p-1 rounded-lg hover:bg-white/5 text-gray-400 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-3">
+              {roomMessages.filter(msg => msg.star).length === 0 ? (
+                <div className="text-center text-gray-500 mt-10 text-sm">
+                  Belum ada pesan berbintang
+                </div>
+              ) : (
+                roomMessages.filter(msg => msg.star).map(msg => (
+                  <div key={`star-${msg.id}`} className="bg-[#1A1A24] border border-primary-900/30 p-3 rounded-xl flex flex-col gap-2 relative group">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-primary-400 font-bold">{msg.senderName}</span>
+                      <span className="text-[10px] text-gray-500">{msg.timestamp}</span>
+                    </div>
+                    <p className="text-sm text-gray-300 whitespace-pre-wrap line-clamp-4">{msg.text}</p>
+                    <button 
+                      onClick={() => {
+                        setRoomMessages(prev => prev.map(m => m.id === msg.id ? { ...m, star: false } : m));
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-black/50 rounded-lg text-gray-400 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Settings Modal (Gear Icon) */}
@@ -1332,10 +1495,70 @@ export default function App() {
                 </div>
                 {isPromptSavedToast && <p className="text-emerald-400 text-xs text-right mt-1">✓ Berhasil disimpan</p>}
               </div>
+              
+              <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-primary-900/30">
+                <button 
+                  onClick={() => setShowClearHistoryConfirm(true)}
+                  className="w-full py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-medium transition-colors cursor-pointer flex items-center justify-center gap-2 text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Hapus Riwayat Pesan
+                </button>
+                <button 
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="w-full py-2.5 rounded-xl bg-red-600/20 border border-red-500/50 text-red-500 hover:bg-red-600/30 font-medium transition-colors cursor-pointer flex items-center justify-center gap-2 text-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Log Out
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
       )}
+      
+      {/* Confirm Clear History Modal */}
+      {showClearHistoryConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowClearHistoryConfirm(false)}>
+          <div className="bg-[#141416] border border-red-500/50 rounded-2xl w-full max-w-xs p-6 shadow-2xl scale-100 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white text-center mb-2">Hapus Riwayat?</h3>
+            <p className="text-sm text-gray-400 text-center mb-6">Yakin ingin hapus riwayat pesan?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowClearHistoryConfirm(false)} className="flex-1 py-2 rounded-xl bg-[#2A2A35] text-white hover:bg-[#3A3A45] font-medium transition-colors cursor-pointer text-sm">
+                Batal
+              </button>
+              <button onClick={() => { handleClearChat(); setShowClearHistoryConfirm(false); setIsSettingsMenuOpen(false); }} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
+                Oke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Logout Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="bg-[#141416] border border-red-500/50 rounded-2xl w-full max-w-xs p-6 shadow-2xl scale-100 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white text-center mb-2">Log Out?</h3>
+            <p className="text-sm text-gray-400 text-center mb-6">Yakin ingin log out dari akun ini?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2 rounded-xl bg-[#2A2A35] text-white hover:bg-[#3A3A45] font-medium transition-colors cursor-pointer text-sm">
+                Batal
+              </button>
+              <button onClick={() => { 
+                setUserName(''); 
+                localStorage.removeItem(STORAGE_KEY_USERNAME); 
+                setShowLogoutConfirm(false); 
+                setIsSettingsMenuOpen(false); 
+              }} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
+                Oke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 </div>
  );
 }
