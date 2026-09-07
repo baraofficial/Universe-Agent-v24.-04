@@ -903,9 +903,9 @@ export default function App() {
  KONTEN UTAMA APLIKASI (TAB BASED)
  =======================================================================
  */}
- <main className="flex-1 w-full mx-auto p-4 sm:p-6 md:p-8 flex flex-col overflow-hidden pb-4 max-w-3xl">
+ <main className={`flex-1 w-full mx-auto flex flex-col overflow-hidden ${chatMode === 'room' ? 'p-0 max-w-full pb-0' : 'p-4 sm:p-6 md:p-8 pb-4 max-w-3xl'}`}>
  
- <section className="flex flex-col flex-1 bg-[#0E0E12]/90 border border-primary-900/50 rounded-3xl overflow-hidden backdrop-blur-xl relative animate-fade-in mb-4 sm:mb-6">
+ <section className={`flex flex-col flex-1 overflow-hidden relative animate-fade-in ${chatMode === 'room' ? 'bg-transparent border-none rounded-none mb-0' : 'bg-[#0E0E12]/90 border border-primary-900/50 rounded-3xl backdrop-blur-xl mb-4 sm:mb-6'}`}>
  {/* Header Internal Area Chat */}
  
 
