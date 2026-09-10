@@ -2,8 +2,7 @@ const fs = require('fs');
 
 let content = fs.readFileSync('src/App.tsx', 'utf8');
 
-// 1. Add reply button to context menu
-const contextMenuTarget = `            <div className="p-2 flex justify-around">
+const target = `            <div className="p-2 flex justify-around">
               <button 
                 onClick={() => handleRoomMessageAction('delete')}
                 className="flex-1 flex flex-col items-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
@@ -27,7 +26,7 @@ const contextMenuTarget = `            <div className="p-2 flex justify-around">
               </button>
             </div>`;
 
-const contextMenuRepl = `            <div className="p-2 flex flex-wrap justify-around">
+const repl = `            <div className="p-2 flex flex-wrap justify-around">
               <button 
                 onClick={() => {
                   setReplyingTo(selectedRoomMessage);
@@ -61,8 +60,6 @@ const contextMenuRepl = `            <div className="p-2 flex flex-wrap justify-
               </button>
             </div>`;
 
-content = content.replace(contextMenuTarget, contextMenuRepl);
+content = content.replace(target, repl);
 
-// 2. Remove automatic wallpaper deletion
-// Wait, the automatic wallpaper deletion might be in the room component unmount, or switching tabs?
-// Let's find "setRoomWallpaper(null)" in App.tsx
+fs.writeFileSync('src/App.tsx', content);

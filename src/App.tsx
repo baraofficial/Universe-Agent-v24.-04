@@ -461,7 +461,21 @@ export default function App() {
  
   // --- STATE ROOM CHAT ---
   const [chatMode, setChatMode] = useState<'ai' | 'room'>('ai');
-  const [roomMessages, setRoomMessages] = useState<any[]>([]);
+  const [roomMessages, setRoomMessages] = useState<any[]>(() => {
+    const saved = localStorage.getItem('bara_ai_room_messages');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  
+  useEffect(() => {
+    localStorage.setItem('bara_ai_room_messages', JSON.stringify(roomMessages));
+  }, [roomMessages]);
   const [socket, setSocket] = useState<Socket | null>(null);
 
   // --- UI STATE POPUPS ---
@@ -1288,24 +1302,34 @@ export default function App() {
             <div className="px-5 py-4 border-b border-primary-900/30">
               <p className="text-gray-300 text-sm line-clamp-2 italic">"{selectedRoomMessage.text}"</p>
             </div>
-            <div className="p-2 flex justify-around">
+            <div className="p-2 flex flex-wrap justify-around">
+              <button 
+                onClick={() => {
+                  setReplyingTo(selectedRoomMessage);
+                  setSelectedRoomMessage(null);
+                }}
+                className="flex-[0_0_25%] flex flex-col items-center gap-2 p-3 text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors cursor-pointer"
+              >
+                <Reply className="w-5 h-5" />
+                <span className="text-xs font-medium">Balas</span>
+              </button>
               <button 
                 onClick={() => handleRoomMessageAction('delete')}
-                className="flex-1 flex flex-col items-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
+                className="flex-[0_0_25%] flex flex-col items-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
               >
                 <Trash2 className="w-5 h-5" />
                 <span className="text-xs font-medium">Hapus</span>
               </button>
               <button 
                 onClick={() => handleRoomMessageAction('star')}
-                className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.star ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-white/5'}`}
+                className={`flex-[0_0_25%] flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.star ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-400 hover:bg-white/5'}`}
               >
                 <Star className={`w-5 h-5 ${selectedRoomMessage.star ? 'fill-current' : ''}`} />
                 <span className="text-xs font-medium">Bintang</span>
               </button>
               <button 
                 onClick={() => handleRoomMessageAction('pin')}
-                className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.pin ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 hover:bg-white/5'}`}
+                className={`flex-[0_0_25%] flex flex-col items-center gap-2 p-3 rounded-xl transition-colors cursor-pointer ${selectedRoomMessage.pin ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 hover:bg-white/5'}`}
               >
                 <Pin className={`w-5 h-5 ${selectedRoomMessage.pin ? 'fill-current' : ''}`} />
                 <span className="text-xs font-medium">Sematkan</span>
