@@ -550,8 +550,8 @@ export default function App() {
     };
   }, []);
 
-  const handleSendRoomMessage = (text: string, file?: any) => {
-    if (!text.trim() && !file) return;
+  const handleSendRoomMessage = (text: string) => {
+    if (!text.trim() && !selectedFile) return;
     
     if (editingRoomMessageId) {
       setRoomMessages(prev => prev.map(msg => 
@@ -569,13 +569,14 @@ export default function App() {
       text: text,
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       isMe: true,
-      file: file ? { name: file.name } : null,
+      file: selectedFile ? { name: selectedFile.name, dataUrl: selectedFile.dataUrl, type: selectedFile.type } : null,
       replyTo: replyingTo ? { id: replyingTo.id, senderName: replyingTo.senderName, text: replyingTo.text } : null
     };
     
     setRoomMessages(prev => [...prev, newMsg]);
     socket?.emit("room_message", { ...newMsg, isMe: false });
     setReplyingTo(null);
+    setSelectedFile(null);
   };
   
   // --- STATE BOTTOM NAV ---
@@ -587,6 +588,7 @@ export default function App() {
  const [isThinking, setIsThinking] = useState<boolean>(false);
  
  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<{name: string, dataUrl: string, type: string} | null>(null);
 
  // --- STATE RIWAYAT TUGAS & CATATAN ---
  // Menyimpan daftar perintah yang telah diproses oleh Agent
@@ -787,13 +789,21 @@ export default function App() {
  };
 
  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
- const file = e.target.files?.[0];
- if (file) {
- handleSendCommand(`Tolong proses file ini cak: ${file.name}`);
- // Reset input
- e.target.value = '';
- }
- };
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setSelectedFile({
+          name: file.name,
+          dataUrl: event.target?.result as string,
+          type: file.type
+        });
+      };
+      reader.readAsDataURL(file);
+      // Reset input
+      e.target.value = '';
+    }
+  };
 
  // ============================================================================
  // RENDER UI UTAMA APLIKASI
@@ -875,6 +885,11 @@ export default function App() {
                         New Chat
                       </button>
                     )}
+                  </div>
+                  <div className="mt-auto p-4 text-center border-t border-primary-900/30">
+                    <p className="text-xs text-gray-500 font-mono tracking-wider">
+                      © Bara Official X Bara AI
+                    </p>
                   </div>
                 </div>
               </>
@@ -1047,11 +1062,18 @@ export default function App() {
                  <div className="text-gray-300 line-clamp-2">{msg.replyTo.text}</div>
                </div>
              )}
-             <div className="whitespace-pre-wrap">
-               {msg.text}
-             </div>
+             {msg.file && msg.file.type?.startsWith('image/') && (
+               <div className="mb-2 rounded-xl overflow-hidden max-w-sm">
+                 <img src={msg.file.dataUrl} alt="Upload" className="w-full h-auto object-cover max-h-64" />
+               </div>
+             )}
+             {msg.text && (
+               <div className="whitespace-pre-wrap">
+                 {msg.text}
+               </div>
+             )}
              {msg.isEdited && <div className="text-[10px] text-gray-500 mt-1 italic">(diedit)</div>}
-             {msg.file && (
+             {msg.file && !msg.file.type?.startsWith('image/') && (
                <div className="mt-2 text-xs text-primary-300 flex items-center gap-1">
                  <Folder className="w-3 h-3" /> {msg.file.name}
                </div>
@@ -1139,7 +1161,26 @@ export default function App() {
           */}
           <div className="px-4 sm:px-6 pb-6 pt-2 bg-transparent">
             {/* Kotak Input Textarea & Tombol Kirim */}
-            <form 
+            
+              {selectedFile && (
+                <div className="absolute -top-24 left-0 px-4 py-2 bg-[#1A1A24] border border-primary-500/50 rounded-2xl flex items-center gap-3 shadow-xl z-20 max-w-sm">
+                  {selectedFile.type.startsWith('image/') ? (
+                    <img src={selectedFile.dataUrl} alt="Preview" className="w-16 h-16 object-cover rounded-xl" />
+                  ) : (
+                    <div className="w-16 h-16 bg-primary-900/30 flex items-center justify-center rounded-xl">
+                      <FileCode className="w-8 h-8 text-primary-400" />
+                    </div>
+                  )}
+                  <div className="flex flex-col flex-1 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-200 truncate">{selectedFile.name}</span>
+                    <span className="text-xs text-primary-400">Siap dikirim</span>
+                  </div>
+                  <button type="button" onClick={() => setSelectedFile(null)} className="p-2 hover:bg-white/10 rounded-full text-gray-400">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+<form
               onSubmit={(e) => {
                 e.preventDefault();
                 if (chatMode === 'ai') {
