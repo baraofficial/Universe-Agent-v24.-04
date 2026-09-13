@@ -46,7 +46,7 @@ async function startServer() {
         const key = process.env.GEMINI_API_KEY;
         if (!key) {
           return res.json({
-            responseText: "Maaf cak, API Key Gemini belum disetting di environment variables. Silakan tambahkan GEMINI_API_KEY di Settings > Secrets.",
+            responseText: "Maaf, API Key Gemini belum disetting di environment variables. Silakan tambahkan GEMINI_API_KEY di Settings > Secrets.",
             toolUsed: "Error",
             status: "Ditolak (No API Key)"
           });
@@ -67,18 +67,18 @@ async function startServer() {
         try {
           const commitUrl = await commitFileToGithub(
             "TEST_AGENT.md", 
-            "# TEST AGENT\n\nIni adalah file test buatan Bara AI cak! Berhasil di-upload via Octokit API.", 
+            "# TEST AGENT\n\nIni adalah file test buatan Bara AI! Berhasil di-upload via Octokit API.", 
             "test: create TEST_AGENT.md via agent"
           );
           return res.json({
-            responseText: `Berhasil cak! File TEST_AGENT.md udah di-commit ke GitHub via Octokit.\n\n[Cek File Commit Disini](${commitUrl})`,
+            responseText: `Berhasil! File TEST_AGENT.md udah di-commit ke GitHub via Octokit.\n\n[Cek File Commit Disini](${commitUrl})`,
             toolUsed: "Deploy Tools",
             status: "Selesai"
           });
         } catch (e: any) {
           console.error("Test agent error:", e);
           return res.json({
-            responseText: `Gagal test agent cak: ${e.message}`,
+            responseText: `Gagal test agent: ${e.message}`,
             toolUsed: "Error",
             status: "Gagal"
           });
@@ -97,7 +97,7 @@ async function startServer() {
             const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
 
 <system_prompt_dari_user>
-${systemPrompt || "Kamu bukan lagi sekadar AI Agent, kamu adalah Bara, teman ngobrol yang asik. Jawab dengan santai, gunakan kata sapaan 'cak'."}
+${systemPrompt || "Kamu bukan lagi sekadar AI Agent, kamu adalah Bara, teman ngobrol yang asik. Jawab dengan santai, keren dan profesional."}
 </system_prompt_dari_user>
 ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons DALAM FORMAT JSON sesuai dengan schema yang diberikan.\n2. Jika user meminta untuk melakukan update ke github, commit, atau push kode, kamu WAJIB mengisi property 'gitAction' di JSON dengan 'commitMessage' yang mendeskripsikan perubahan tersebut.\n3. Selalu patuhi identitas, gaya bahasa, aturan, dan larangan yang ditetapkan dalam <system_prompt_dari_user> di atas.`;
 
@@ -170,7 +170,7 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons D
             await runGitAdd();
             await runGitCommit(output.gitAction.commitMessage);
             await runGitPush(token);
-            output.responseText += "\n\nBerhasil cak! Kode udah di-commit dan di-push ke GitHub. [Link Commit](https://github.com/baraofficial/Universe-Agent-v24.-04/commits/main)";
+            output.responseText += "\n\nBerhasil! Kode udah di-commit dan di-push ke GitHub. [Link Commit](https://github.com/baraofficial/Universe-Agent-v24.-04/commits/main)";
             output.toolUsed = "Deploy Tools";
             output.status = "Selesai";
           }
@@ -178,7 +178,7 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons D
           console.error("Git error:", e);
           output.responseText += `
 
-Gagal nge-push cak: ${e.message}`;
+Gagal nge-push: ${e.message}`;
           output.toolUsed = "Error";
           output.status = "Gagal";
         }
@@ -188,7 +188,7 @@ Gagal nge-push cak: ${e.message}`;
     } catch (error: any) {
       console.error("Gemini error:", error);
       res.json({
-        responseText: `Waduh cak, ada error pas menghubungi Gemini: ${error.message}`,
+        responseText: `Waduh, ada error pas menghubungi Gemini: ${error.message}`,
         toolUsed: "Error",
         status: "Gagal"
       });
@@ -199,7 +199,7 @@ Gagal nge-push cak: ${e.message}`;
   app.use('/api', (err, req, res, next) => {
     console.error('API Error:', err);
     res.status(err.status || 500).json({
-      responseText: "Waduh cak, terjadi kesalahan sistem: " + (err.message || 'Unknown Error'),
+      responseText: "Waduh, terjadi kesalahan sistem: " + (err.message || 'Unknown Error'),
       toolUsed: "Error",
       status: "Gagal"
     });

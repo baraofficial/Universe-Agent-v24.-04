@@ -28,7 +28,7 @@ import {
  CheckCircle2,
  Clock,
  Save,
- Trash2,
+ Trash2, Share2,
  Terminal,
  Activity,
  Cpu,
@@ -94,7 +94,7 @@ interface SavedNote {
 // ============================================================================
 
 /** System Prompt Default sesuai dengan instruksi spesifikasi */
-const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI. Asisten AI pribadi yg cerdas dan proaktif. \nTugas: Bantu user menyelesaikan tugas. Gaya bahasa: Santai, panggil user 'cak'. \nAturan: Jangan lakukan hal ilegal. Jika tidak bisa, jelaskan kenapa.\n`;
+const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI. Asisten AI pribadi yg cerdas dan proaktif. \nTugas: Bantu user menyelesaikan tugas. Gaya bahasa: Keren dan profesional. \nAturan: Jangan lakukan hal ilegal. Jika tidak bisa, jelaskan kenapa.\n`;
 
 /** Kunci penyimpanan lokal (localStorage) */
 const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
@@ -401,7 +401,7 @@ export default function App() {
     
     let chatContent = "# Bara AI - Chat History\n\n";
     messages.forEach(msg => {
-      const senderName = msg.sender === 'user' ? (userName || 'User (Cak)') : 'Bara AI';
+      const senderName = msg.sender === 'user' ? (userName || 'User') : 'Bara AI';
       chatContent += `[${msg.timestamp}] ${senderName}:\n${msg.text}\n\n`;
     });
     
@@ -430,7 +430,7 @@ export default function App() {
  // --- STATE USERNAME ---
  const [userName, setUserName] = useState<string>(() => {
  const saved = localStorage.getItem(STORAGE_KEY_USERNAME);
- return saved || 'Cak Bara';
+ return saved || 'Bara';
  });
  const [isEditingUserName, setIsEditingUserName] = useState<boolean>(false);
  const [tempUserName, setTempUserName] = useState<string>('');
@@ -473,7 +473,7 @@ const [messages, setMessages] = useState<ChatMessage[]>(() => {
     {
       id: 'welcome',
       sender: 'ai',
-      text: 'Halo cak! Ada yang bisa dibantu hari ini?',
+      text: 'Halo! Ada yang bisa dibantu hari ini?',
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       toolUsed: 'Umum'
     }
@@ -491,6 +491,23 @@ useEffect(() => {
     ));
   }
 }, [messages, currentSessionId]);
+
+const handleShareSession = async (id: string) => {
+  const session = chatSessions.find(s => s.id === id);
+  if (!session) return;
+  const text = session.messages.map(m => `${m.sender === 'user' ? (userName || 'User') : 'Bara AI'}: ${m.text}`).join('\n\n');
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: session.title, text: text });
+    } catch (e) {
+      console.log('Error sharing', e);
+    }
+  } else {
+    navigator.clipboard.writeText(text);
+    alert('Percakapan disalin ke clipboard!');
+  }
+  setActionMenuSessionId(null);
+};
 
 const deleteSession = (id: string) => {
   setChatSessions(prev => prev.filter(s => s.id !== id));
@@ -599,7 +616,7 @@ const handleSelectSession = (id: string) => {
         video.preload = 'metadata';
         video.onloadedmetadata = function() {
           if (video.duration > 21) { // 21 to give a 1s buffer for 20s videos
-            alert("Durasi video maksimal 20 detik cak!");
+            alert("Durasi video maksimal 20 detik!");
             URL.revokeObjectURL(video.src);
             return;
           }
@@ -747,7 +764,7 @@ const handleSelectSession = (id: string) => {
  // ============================================================================
  /**
  * Menganalisis perintah user, menentukan tool yang relevan,
- * mendeteksi kueri ilegal, dan memberikan jawaban bersahabat "cak".
+ * mendeteksi kueri ilegal, dan memberikan jawaban keren.
  */
  // FUNGSI MENGIRIM PESAN (DENGAN SIMULASI DELAY BERPIKIR 1.5 DETIK)
  // ============================================================================
@@ -811,7 +828,7 @@ const handleSelectSession = (id: string) => {
  const aiReplyMessage: ChatMessage = {
  id: `ai-${Date.now()}`,
  sender: 'ai',
- text: result.responseText || "Maaf cak, terjadi kesalahan dalam menghasilkan respon.",
+ text: result.responseText || "Maaf, terjadi kesalahan dalam menghasilkan respon.",
  timestamp: new Date().toLocaleTimeString('id-ID', {
  hour: '2-digit',
  minute: '2-digit'
@@ -840,7 +857,7 @@ const handleSelectSession = (id: string) => {
  const aiReplyMessage: ChatMessage = {
  id: `ai-${Date.now()}`,
  sender: 'ai',
- text: "Waduh cak, terjadi kesalahan sistem: " + String(error),
+ text: "Waduh, terjadi kesalahan sistem: " + String(error),
  timestamp: new Date().toLocaleTimeString('id-ID', {
  hour: '2-digit',
  minute: '2-digit'
@@ -875,7 +892,7 @@ const handleClearChat = () => {
  {
  id: 'welcome-reset',
  sender: 'ai',
- text: 'Riwayat chat telah dibersihkan cak! BARA AI siap menerima perintah baru.',
+ text: 'Riwayat chat telah dibersihkan! BARA AI siap menerima perintah baru.',
  timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
  toolUsed: 'Umum'
  }
@@ -1013,18 +1030,21 @@ const handleClearChat = () => {
                                 e.stopPropagation();
                                 setActionMenuSessionId(actionMenuSessionId === session.id ? null : session.id);
                               }}
-                              className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                              className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
 
                             {actionMenuSessionId === session.id && (
                               <div className="absolute right-8 top-8 w-40 bg-[#1A1A24] border border-primary-500/30 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => toggleStarSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
-                                  <Star className={`w-4 h-4 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} /> {session.isStarred ? 'Batal Bintang' : 'Bintangi'}
+                                <button onClick={() => handleShareSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
+                                  <Share2 className="w-4 h-4" /> Bagikan
                                 </button>
-                                <button onClick={() => deleteSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                <button onClick={() => deleteSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
                                   <Trash2 className="w-4 h-4" /> Hapus
+                                </button>
+                                <button onClick={() => toggleStarSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
+                                  <Star className={`w-4 h-4 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} /> {session.isStarred ? 'Batal Bintang' : 'Bintangi'}
                                 </button>
                               </div>
                             )}
@@ -1113,7 +1133,7 @@ const handleClearChat = () => {
          }`}>
            <div className="flex items-center gap-2 px-1">
              <span className="text-[10px] sm:text-xs font-mono font-medium text-gray-500">
-               {isAi ? 'Bara AI' : (userName || 'USER (Cak)')}
+               {isAi ? 'Bara AI' : (userName || 'USER')}
              </span>
              <span className="text-[9px] sm:text-[10px] font-mono text-gray-600">{msg.timestamp}</span>
            </div>
@@ -1678,7 +1698,7 @@ const handleClearChat = () => {
                       onClick={() => {
                         setRoomMessages(prev => prev.map(m => m.id === msg.id ? { ...m, star: false } : m));
                       }}
-                      className="absolute top-2 right-2 p-1 bg-black/50 rounded-lg text-gray-400 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      className="absolute top-2 right-2 p-1 bg-black/50 rounded-lg text-gray-400 hover:text-yellow-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
                     >
                       <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                     </button>
@@ -1718,7 +1738,7 @@ const handleClearChat = () => {
                       <UserCircle className="w-10 h-10 text-primary-500/50" />
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <div className="absolute inset-0 bg-black/50 rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center transition-opacity">
                     <Camera className="w-6 h-6 text-white" />
                   </div>
                   <input type="file" ref={avatarInputRef} accept="image/*" className="hidden" onChange={handleAvatarUpload} />
@@ -1740,7 +1760,7 @@ const handleClearChat = () => {
                   {isEditingUserName ? (
                     <button onClick={() => { setUserName(tempUserName); setIsEditingUserName(false); }} className="p-2 bg-primary-600 rounded-xl text-white cursor-pointer"><CheckCircle2 className="w-4 h-4" /></button>
                   ) : (
-                    <button onClick={() => { setTempUserName(userName); setIsEditingUserName(true); }} className="p-2 bg-primary-900/30 text-primary-400 rounded-xl cursor-pointer"><Wrench className="w-4 h-4" /></button>
+                    <button onClick={() => { setTempUserName(userName); setIsEditingUserName(true); }} className="p-2 bg-primary-900/30 text-primary-400 rounded-xl cursor-pointer"><Pencil className="w-4 h-4" /></button>
                   )}
                 </div>
               </div>
