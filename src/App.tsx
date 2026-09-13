@@ -919,7 +919,7 @@ const handleClearChat = () => {
  // RENDER UI UTAMA APLIKASI
  // ============================================================================
  return (
- <div className={`h-screen overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
+ <div className={`fixed inset-0 overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
         {chatMode === 'room' && roomWallpaper && (
           <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
             {roomWallpaperType === 'video' ? (
