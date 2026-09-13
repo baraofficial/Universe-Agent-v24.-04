@@ -110,7 +110,7 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons D
       while (retries > 0) {
         try {
           response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
+            model: "gemini-2.5-flash",
             contents: promptWithContext,
             config: {
               systemInstruction: finalSystemInstruction,

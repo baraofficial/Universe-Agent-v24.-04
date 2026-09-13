@@ -374,6 +374,12 @@ export default function App() {
  // Menyimpan isi System Prompt dari localStorage atau default prompt
  
 
+  const [userAvatar, setUserAvatar] = useState<string | null>(() => {
+    return localStorage.getItem('bara_user_avatar') || null;
+  });
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [copiedAiMessageId, setCopiedAiMessageId] = useState<string | null>(null);
+
   // --- STATE THEME & MODALS ---
   const [theme, setTheme] = useState<string>(() => {
     return localStorage.getItem('bara_theme') || 'purple';
@@ -1770,7 +1776,7 @@ const handleClearChat = () => {
                 />
                 <div className="flex justify-end">
                    <button onClick={() => {
-                     localStorage.setItem('bara_system_prompt', systemPrompt);
+                     localStorage.setItem(STORAGE_KEY_PROMPT, systemPrompt);
                      setIsPromptSavedToast(true);
                      setTimeout(() => setIsPromptSavedToast(false), 3000);
                    }} className="text-xs bg-primary-600 px-3 py-1.5 rounded-lg text-white font-medium flex items-center gap-1 cursor-pointer">
