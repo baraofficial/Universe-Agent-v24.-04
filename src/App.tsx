@@ -56,6 +56,14 @@ import {
 // ============================================================================
 
 /** Struktur data untuk pesan chat antara User dan AI Agent */
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  updatedAt: number;
+  isStarred: boolean;
+}
+
 interface ChatMessage {
  id: string;
  sender: 'user' | 'ai';
@@ -432,31 +440,75 @@ export default function App() {
     ));
   };
 
-  const handleCopy = (text: string) => {
+  const handleCopyAiMessage = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
+    setCopiedAiMessageId(id);
+    setTimeout(() => setCopiedAiMessageId(null), 2000);
   };
 
   // Menyimpan riwayat percakapan chat
- const [messages, setMessages] = useState<ChatMessage[]>(() => {
- const saved = localStorage.getItem(STORAGE_KEY_CHAT);
- if (saved) {
- try {
- return JSON.parse(saved);
- } catch {
- // Fallback jika json rusak
- }
- }
- // Pesan sapaan pembuka default dari AI Agent
- return [
- {
- id: 'welcome-1',
- sender: 'ai',
- text: 'Halo cak! Aku BARA AI, asisten AI futuristikmu yang aktif 24/7. Ada tugas atau perintah apa yang bisa kubantu hari ini cak?',
- timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
- toolUsed: 'Umum'
- }
- ];
- });
+ const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+  const saved = localStorage.getItem('bara_chat_sessions');
+  if (saved) {
+    try { return JSON.parse(saved); } catch {}
+  }
+  return [];
+});
+const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
+const [isStarredSessionsOpen, setIsStarredSessionsOpen] = useState(false);
+
+const [messages, setMessages] = useState<ChatMessage[]>(() => {
+  const saved = localStorage.getItem(STORAGE_KEY_CHAT);
+  if (saved) {
+    try { return JSON.parse(saved); } catch {}
+  }
+  return [
+    {
+      id: 'welcome',
+      sender: 'ai',
+      text: 'Halo cak! Ada yang bisa dibantu hari ini?',
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      toolUsed: 'Umum'
+    }
+  ];
+});
+
+useEffect(() => {
+  localStorage.setItem('bara_chat_sessions', JSON.stringify(chatSessions));
+}, [chatSessions]);
+
+useEffect(() => {
+  if (currentSessionId && messages.length > 0) {
+    setChatSessions(prev => prev.map(s => 
+      s.id === currentSessionId ? { ...s, messages: messages, updatedAt: Date.now() } : s
+    ));
+  }
+}, [messages, currentSessionId]);
+
+const deleteSession = (id: string) => {
+  setChatSessions(prev => prev.filter(s => s.id !== id));
+  if (currentSessionId === id) {
+    handleClearChat();
+  }
+  setActionMenuSessionId(null);
+};
+
+const toggleStarSession = (id: string) => {
+  setChatSessions(prev => prev.map(s => s.id === id ? { ...s, isStarred: !s.isStarred } : s));
+  setActionMenuSessionId(null);
+};
+
+const handleSelectSession = (id: string) => {
+  const session = chatSessions.find(s => s.id === id);
+  if (session) {
+    setMessages(session.messages);
+    setCurrentSessionId(session.id);
+    setChatMode('ai');
+    setIsTopMenuOpen(false);
+  }
+};
+
 
  
   // --- STATE ROOM CHAT ---
@@ -474,8 +526,33 @@ export default function App() {
   });
   
   useEffect(() => {
-    localStorage.setItem('bara_ai_room_messages', JSON.stringify(roomMessages));
+    try {
+      // Keep only the last 50 messages for local storage to prevent QuotaExceededError
+      const messagesToSave = roomMessages.length > 50 ? roomMessages.slice(roomMessages.length - 50) : roomMessages;
+      localStorage.setItem('bara_ai_room_messages', JSON.stringify(messagesToSave));
+    } catch (e) {
+      console.error("Local storage quota exceeded, trying to save fewer messages", e);
+      try {
+        const messagesToSave = roomMessages.length > 10 ? roomMessages.slice(roomMessages.length - 10) : roomMessages;
+        localStorage.setItem('bara_ai_room_messages', JSON.stringify(messagesToSave));
+      } catch (err) {
+        console.error("Still exceeding quota", err);
+      }
+    }
   }, [roomMessages]);
+
+  // Sync state across multiple tabs
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'bara_ai_room_messages' && e.newValue) {
+        try {
+          setRoomMessages(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
   const [socket, setSocket] = useState<Socket | null>(null);
 
   // --- UI STATE POPUPS ---
@@ -691,10 +768,23 @@ export default function App() {
  };
 
  const newMessagesList = [...messages, newUserMessage];
- setMessages(newMessagesList);
- setInputCommand('');
+    setMessages(newMessagesList);
+    
+    if (!currentSessionId) {
+      const newSessionId = `session-${Date.now()}`;
+      const newSession: ChatSession = {
+        id: newSessionId,
+        title: textToSend.trim().substring(0, 30) + (textToSend.length > 30 ? '...' : ''),
+        messages: newMessagesList,
+        updatedAt: Date.now(),
+        isStarred: false
+      };
+      setChatSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(newSessionId);
+    }
 
- setIsThinking(true);
+    setInputCommand('');
+    setIsThinking(true);
  
 
  try {
@@ -761,7 +851,20 @@ export default function App() {
  // FUNGSI RESET / BERSIHKAN DATA
  // ============================================================================
  /** Menghapus riwayat chat dan mengembalikan ke pesan sapaan awal */
- const handleClearChat = () => {
+ const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        setUserAvatar(dataUrl);
+        localStorage.setItem('bara_user_avatar', dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+const handleClearChat = () => {
  const defaultWelcome: ChatMessage[] = [
  {
  id: 'welcome-reset',
@@ -772,7 +875,8 @@ export default function App() {
  }
  ];
  setMessages(defaultWelcome);
- localStorage.removeItem(STORAGE_KEY_CHAT);
+    setCurrentSessionId(null);
+    localStorage.removeItem(STORAGE_KEY_CHAT);
  };
 
  /** Menghapus seluruh riwayat tugas yang selesai dikerjakan */
@@ -809,7 +913,7 @@ export default function App() {
  // RENDER UI UTAMA APLIKASI
  // ============================================================================
  return (
- <div className={`min-h-screen bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
+ <div className={`h-screen overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
         {chatMode === 'room' && roomWallpaper && (
           <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
             {roomWallpaperType === 'video' ? (
@@ -884,6 +988,43 @@ export default function App() {
                         <Plus className="w-5 h-5" />
                         New Chat
                       </button>
+                    )}
+
+                    {chatMode === 'ai' && chatSessions.length > 0 && (
+                      <div className="mt-4 flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-1 pb-4">
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 px-1">Riwayat Chat</div>
+                        {chatSessions.map(session => (
+                          <div key={session.id} onClick={() => handleSelectSession(session.id)} className="group relative flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/10">
+                            <div className="flex items-center gap-2 overflow-hidden flex-1">
+                              <MessageSquare className="w-4 h-4 text-gray-400 shrink-0" />
+                              <span className={`text-sm truncate ${currentSessionId === session.id ? 'text-primary-300 font-medium' : 'text-gray-300'}`}>
+                                {session.title}
+                              </span>
+                            </div>
+                            
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionMenuSessionId(actionMenuSessionId === session.id ? null : session.id);
+                              }}
+                              className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {actionMenuSessionId === session.id && (
+                              <div className="absolute right-8 top-8 w-40 bg-[#1A1A24] border border-primary-500/30 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => toggleStarSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <Star className={`w-4 h-4 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} /> {session.isStarred ? 'Batal Bintang' : 'Bintangi'}
+                                </button>
+                                <button onClick={() => deleteSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <Trash2 className="w-4 h-4" /> Hapus
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className="mt-auto p-4 text-center border-t border-primary-900/30">
@@ -982,11 +1123,11 @@ export default function App() {
              {isAi && (
                <div className="mt-3 pt-3 flex items-center gap-2">
                  <button 
-                   onClick={() => handleCopy(msg.text)}
+                   onClick={() => handleCopyAiMessage(msg.id, msg.text)}
                    className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
                    title="Salin Pesan"
                  >
-                   <Copy className="w-4 h-4" />
+                   {copiedAiMessageId === msg.id ? <CheckIcon className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                  </button>
                  <button 
                    onClick={() => handleFeedback(msg.id, 'up')}
@@ -1011,7 +1152,11 @@ export default function App() {
          {!isAi && (
            <div className="flex-shrink-0 mt-1">
              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
-               <UserCircle className="w-6 h-6 text-primary-500/50" />
+               {userAvatar ? (
+                 <img src={userAvatar} alt="User" className="w-full h-full object-cover" />
+               ) : (
+                 <UserCircle className="w-6 h-6 text-primary-500/50" />
+               )}
              </div>
            </div>
          )}
@@ -1037,7 +1182,11 @@ export default function App() {
          {!isMe && (
            <div className="flex-shrink-0 mt-1">
              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
-               <UserCircle className="w-6 h-6 text-primary-500/50" />
+               {userAvatar ? (
+                 <img src={userAvatar} alt="User" className="w-full h-full object-cover" />
+               ) : (
+                 <UserCircle className="w-6 h-6 text-primary-500/50" />
+               )}
              </div>
            </div>
          )}
@@ -1101,7 +1250,11 @@ export default function App() {
          {isMe && (
            <div className="flex-shrink-0 mt-1">
              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#1A1A24] border border-primary-900/50 flex items-center justify-center overflow-hidden">
-               <UserCircle className="w-6 h-6 text-primary-500/50" />
+               {userAvatar ? (
+                 <img src={userAvatar} alt="User" className="w-full h-full object-cover" />
+               ) : (
+                 <UserCircle className="w-6 h-6 text-primary-500/50" />
+               )}
              </div>
            </div>
          )}
@@ -1162,6 +1315,18 @@ export default function App() {
           <div className="px-4 sm:px-6 pb-6 pt-2 bg-transparent">
             {/* Kotak Input Textarea & Tombol Kirim */}
             
+              <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (chatMode === 'ai') {
+                  handleSendCommand();
+                } else {
+                  handleSendRoomMessage(inputCommand);
+                  setInputCommand('');
+                }
+              }}
+              className="flex flex-col gap-3 relative max-w-4xl mx-auto"
+            >
               {selectedFile && (
                 <div className="absolute -top-24 left-0 px-4 py-2 bg-[#1A1A24] border border-primary-500/50 rounded-2xl flex items-center gap-3 shadow-xl z-20 max-w-sm">
                   {selectedFile.type.startsWith('image/') ? (
@@ -1180,18 +1345,6 @@ export default function App() {
                   </button>
                 </div>
               )}
-<form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (chatMode === 'ai') {
-                  handleSendCommand();
-                } else {
-                  handleSendRoomMessage(inputCommand);
-                  setInputCommand('');
-                }
-              }}
-              className="flex flex-col gap-3 relative max-w-4xl mx-auto"
-            >
               {editingRoomMessageId && chatMode === 'room' && (
                 <div className="absolute -top-12 left-0 right-0 px-4 py-2 bg-primary-900/90 border border-primary-500/50 rounded-2xl backdrop-blur-xl flex items-center justify-between text-sm shadow-xl z-10 mx-auto max-w-4xl w-full">
                   <div className="flex flex-col overflow-hidden max-w-[90%]">
@@ -1437,6 +1590,56 @@ export default function App() {
         </div>
       )}
 
+      
+      {/* Starred Sessions Sidebar (AI Chat) */}
+      {isStarredSessionsOpen && chatMode === 'ai' && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsStarredSessionsOpen(false)}></div>
+          <div className="fixed inset-y-0 right-0 w-80 bg-[#09090b] border-l border-primary-500/30 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ease-out translate-x-0">
+            <div className="p-4 border-b border-primary-900/30 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-orbitron font-bold text-yellow-400 flex items-center gap-2">
+                <Star className="w-5 h-5 fill-current" />
+                Pesan Berbintang
+              </h2>
+              <button onClick={() => setIsStarredSessionsOpen(false)} className="p-1 rounded-lg hover:bg-white/5 text-gray-400 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {chatSessions.filter(s => s.isStarred).length === 0 ? (
+                <div className="text-center text-gray-500 text-sm mt-10">Belum ada pesan yang dibintangi.</div>
+              ) : (
+                chatSessions.filter(s => s.isStarred).map(session => (
+                  <div key={session.id} className="bg-[#1A1A24] border border-primary-900/40 rounded-xl p-3 flex flex-col gap-2 relative">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm text-gray-200 font-medium line-clamp-2">{session.title}</div>
+                      <button 
+                        onClick={() => toggleStarSession(session.id)}
+                        className="p-1 text-yellow-400 hover:bg-white/10 rounded-lg shrink-0 cursor-pointer"
+                      >
+                        <Star className="w-4 h-4 fill-current" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-gray-500 font-mono">{new Date(session.updatedAt).toLocaleString('id-ID', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}</span>
+                      <button 
+                        onClick={() => {
+                          handleSelectSession(session.id);
+                          setIsStarredSessionsOpen(false);
+                        }}
+                        className="text-xs text-primary-400 hover:text-primary-300 cursor-pointer font-medium"
+                      >
+                        Buka Chat
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Starred Messages Sidebar */}
       {isStarredMessagesOpen && chatMode === 'room' && (
         <>
@@ -1498,6 +1701,25 @@ export default function App() {
 
               </div>
 
+              
+              {/* Foto Profil */}
+              <div className="flex flex-col gap-3 items-center">
+                <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+                  <div className="w-20 h-20 rounded-full bg-primary-900/30 border-2 border-primary-500/50 flex items-center justify-center overflow-hidden">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <UserCircle className="w-10 h-10 text-primary-500/50" />
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <Camera className="w-6 h-6 text-white" />
+                  </div>
+                  <input type="file" ref={avatarInputRef} accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                </div>
+                <h3 className="text-xs font-mono text-primary-400">Ubah Foto Profil</h3>
+              </div>
+              
               {/* Edit Username */}
               <div className="flex flex-col gap-3">
                 <h3 className="text-xs font-mono text-primary-300 uppercase">Username Panggilan</h3>
@@ -1556,6 +1778,23 @@ export default function App() {
                    </button>
                 </div>
                 {isPromptSavedToast && <p className="text-emerald-400 text-xs text-right mt-1">✓ Berhasil disimpan</p>}
+              </div>
+
+              {/* Pesan Berbintang */}
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    setIsSettingsMenuOpen(false);
+                    setIsStarredSessionsOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-primary-900/10 border border-primary-500/30 hover:bg-primary-900/30 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 text-sm font-medium text-gray-200">
+                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400/20" />
+                    Pesan Berbintang
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
               </div>
               
               <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-primary-900/30">

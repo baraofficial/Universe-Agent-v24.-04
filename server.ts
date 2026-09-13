@@ -11,7 +11,8 @@ async function startServer() {
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server, {
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    maxHttpBufferSize: 50 * 1024 * 1024 // 50MB for large image data
   });
 
   io.on("connection", (socket) => {
