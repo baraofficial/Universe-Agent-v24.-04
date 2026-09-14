@@ -13,6 +13,7 @@
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import React, { useState, useEffect, useRef } from 'react';
+import { saveWallpaper, getWallpaper, deleteWallpaper } from './lib/indexedDB';
 import { motion } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 
@@ -602,6 +603,18 @@ const handleSelectSession = (id: string) => {
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [roomWallpaper, setRoomWallpaper] = useState<string | null>(null);
   const [roomWallpaperType, setRoomWallpaperType] = useState<'image' | 'video' | null>(null);
+  useEffect(() => {
+    getWallpaper().then(res => {
+      if (res) {
+        setRoomWallpaper(res.dataUrl);
+        setRoomWallpaperType(res.type as 'image' | 'video');
+      }
+    }).catch(console.error);
+  }, []);
+
+    const [isDeleteRoomChatModalOpen, setIsDeleteRoomChatModalOpen] = useState(false);
+  const [deleteObrolanChecked, setDeleteObrolanChecked] = useState(true);
+  const [deleteMediaChecked, setDeleteMediaChecked] = useState(false);
   const [isRoomSettingsOpen, setIsRoomSettingsOpen] = useState(false);
   const [isStarredMessagesOpen, setIsStarredMessagesOpen] = useState(false);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
@@ -611,24 +624,30 @@ const handleSelectSession = (id: string) => {
     if (file) {
       const type = file.type.startsWith('video/') ? 'video' : 'image';
       
-      if (type === 'video') {
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = function() {
-          if (video.duration > 21) { // 21 to give a 1s buffer for 20s videos
-            alert("Durasi video maksimal 20 detik!");
-            URL.revokeObjectURL(video.src);
-            return;
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result as string;
+        
+        if (type === 'video') {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.onloadedmetadata = async function() {
+            if (video.duration > 21) {
+              alert("Durasi video maksimal 20 detik!");
+              return;
+            }
+            setRoomWallpaperType('video');
+            setRoomWallpaper(dataUrl);
+            await saveWallpaper(dataUrl, 'video');
           }
-          setRoomWallpaperType(type);
-          setRoomWallpaper(video.src); // Gunakan object URL agar ringan dan cepat
+          video.src = dataUrl;
+        } else {
+          setRoomWallpaperType('image');
+          setRoomWallpaper(dataUrl);
+          await saveWallpaper(dataUrl, 'image');
         }
-        video.src = URL.createObjectURL(file);
-      } else {
-        setRoomWallpaperType(type);
-        const imgUrl = URL.createObjectURL(file);
-        setRoomWallpaper(imgUrl);
-      }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -996,7 +1015,7 @@ const handleClearChat = () => {
                       }}
                       className={`w-full text-left px-4 py-3 rounded-xl hover:bg-primary-900/30 border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${chatMode === 'ai' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white'}`}
                     >
-                      <Bot className="w-5 h-5 text-primary-400" />
+                      <img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-5 h-5 rounded-md object-cover" />
                       Bara AI
                     </button>
                     
@@ -1035,19 +1054,7 @@ const handleClearChat = () => {
                               <MoreVertical className="w-4 h-4" />
                             </button>
 
-                            {actionMenuSessionId === session.id && (
-                              <div className="absolute right-8 top-8 w-40 bg-[#1A1A24] border border-primary-500/30 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => handleShareSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
-                                  <Share2 className="w-4 h-4" /> Bagikan
-                                </button>
-                                <button onClick={() => deleteSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
-                                  <Trash2 className="w-4 h-4" /> Hapus
-                                </button>
-                                <button onClick={() => toggleStarSession(session.id)} className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-3 cursor-pointer transition-colors">
-                                  <Star className={`w-4 h-4 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} /> {session.isStarred ? 'Batal Bintang' : 'Bintangi'}
-                                </button>
-                              </div>
-                            )}
+                            
                           </div>
                         ))}
                       </div>
@@ -1120,9 +1127,7 @@ const handleClearChat = () => {
          {/* Avatar AI Agent (sebelah kiri bubble AI) */}
          {isAi && (
            <div className="flex-shrink-0 relative mt-1">
-             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-primary-700 to-primary-950 border border-primary-400/60 flex items-center justify-center ">
-               <Bot className="w-5 h-5 text-primary-200" />
-             </div>
+             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-primary-400/60 flex items-center justify-center overflow-hidden"><img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-full h-full object-cover" /></div>
              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#0A0A0A]" />
            </div>
          )}
@@ -1590,7 +1595,7 @@ const handleClearChat = () => {
                 </button>
                 {roomWallpaper && (
                   <button 
-                    onClick={() => { setRoomWallpaper(null); setRoomWallpaperType(null); }}
+                    onClick={() => { setRoomWallpaper(null); setRoomWallpaperType(null); deleteWallpaper().catch(console.error); }}
                     className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-medium transition-colors mt-2 cursor-pointer"
                   >
                     Hapus Wallpaper
@@ -1599,16 +1604,39 @@ const handleClearChat = () => {
               </div>
 
               <div className="pt-4 border-t border-primary-900/30">
-                <button 
-                  onClick={() => {
-                    setIsRoomSettingsOpen(false);
-                    setIsStarredMessagesOpen(true);
-                  }}
-                  className="w-full py-3 rounded-xl border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Star className="w-5 h-5 fill-current" />
-                  Pesan Berbintang
-                </button>
+                                  <button 
+                    onClick={() => {
+                      setIsRoomSettingsOpen(false);
+                      setIsStarredMessagesOpen(true);
+                    }}
+                    className="w-full py-3 rounded-xl border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer mb-3"
+                  >
+                    <Star className="w-5 h-5 fill-current" />
+                    Pesan Berbintang
+                  </button>
+                                    <button 
+                    onClick={() => {
+                      setIsRoomSettingsOpen(false);
+                      setIsDeleteRoomChatModalOpen(true);
+                    }}
+                    className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Hapus
+                  </button>
+
+                  {/* Ikuti Kami Section */}
+                  <div className="mt-4 pt-4 border-t border-primary-900/30 flex flex-col items-center gap-3">
+                    <span className="text-xs text-gray-400 font-medium tracking-wide uppercase">Ikuti Kami</span>
+                    <div className="flex items-center gap-4">
+                      <a href="https://www.tiktok.com/@cakbagoes54" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-primary-900/30 flex items-center justify-center text-gray-300 hover:bg-primary-500/20 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+                      </a>
+                      <a href="https://whatsapp.com/channel/0029ValiK1L2ZjCi3uWn9y1v" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-primary-900/30 flex items-center justify-center text-gray-300 hover:bg-green-500/20 hover:text-green-400 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </a>
+                    </div>
+                  </div>
               </div>
 
             </div>
@@ -1617,6 +1645,58 @@ const handleClearChat = () => {
       )}
 
       
+      
+      {/* Modal Hapus Obrolan Room Chat */}
+      {isDeleteRoomChatModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setIsDeleteRoomChatModalOpen(false)}>
+          <div className="bg-[#141416] border border-primary-500/30 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-primary-900/30 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-200">Hapus Pesan</h2>
+              <button onClick={() => setIsDeleteRoomChatModalOpen(false)} className="text-gray-400 hover:text-gray-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 flex flex-col gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className={`w-5 h-5 rounded border flex items-center justify-center ${deleteObrolanChecked ? 'bg-primary-600 border-primary-600' : 'border-gray-500'}`}>
+                   {deleteObrolanChecked && <CheckIcon className="w-3 h-3 text-white" />}
+                </div>
+                <input type="checkbox" className="hidden" checked={deleteObrolanChecked} onChange={(e) => setDeleteObrolanChecked(e.target.checked)} />
+                <span className="text-sm text-gray-300">Hapus obrolan (pesan teks)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className={`w-5 h-5 rounded border flex items-center justify-center ${deleteMediaChecked ? 'bg-primary-600 border-primary-600' : 'border-gray-500'}`}>
+                   {deleteMediaChecked && <CheckIcon className="w-3 h-3 text-white" />}
+                </div>
+                <input type="checkbox" className="hidden" checked={deleteMediaChecked} onChange={(e) => setDeleteMediaChecked(e.target.checked)} />
+                <span className="text-sm text-gray-300">Hapus media (foto, video, dokumen)</span>
+              </label>
+            </div>
+            <div className="p-4 border-t border-primary-900/30 flex justify-end gap-3">
+              <button onClick={() => setIsDeleteRoomChatModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 cursor-pointer transition-colors">
+                Batal
+              </button>
+              <button 
+                onClick={() => {
+                  if (deleteObrolanChecked && deleteMediaChecked) {
+                    setRoomMessages([]);
+                  } else if (deleteObrolanChecked) {
+                    setRoomMessages(prev => prev.filter(m => m.file != null));
+                  } else if (deleteMediaChecked) {
+                    setRoomMessages(prev => prev.filter(m => m.file == null));
+                  }
+                  setIsDeleteRoomChatModalOpen(false);
+                }}
+                disabled={!deleteObrolanChecked && !deleteMediaChecked}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Starred Sessions Sidebar (AI Chat) */}
       {isStarredSessionsOpen && chatMode === 'ai' && (
         <>
