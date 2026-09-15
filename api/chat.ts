@@ -21,7 +21,7 @@ export default async function handler(req: any, res: any) {
     }
   });
 
-  const { prompt, history, systemPrompt } = req.body;
+  const { prompt, history, systemPrompt, file } = req.body;
   const lowerPrompt = prompt.toLowerCase();
 
   // INTERCEPT TEST AGENT (SINGLE FILE VIA OCTOKIT)
@@ -61,8 +61,11 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
   while (retries > 0) {
     try {
       response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: promptWithContext,
+        model: "gemini-2.5-flash",
+        contents: file ? [
+          { text: promptWithContext },
+          { inlineData: { data: file.dataUrl.split(',')[1], mimeType: file.mimeType } }
+        ] : promptWithContext,
         config: {
           systemInstruction: finalSystemInstruction,
           responseMimeType: "application/json",

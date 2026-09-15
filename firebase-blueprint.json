@@ -1,0 +1,63 @@
+{
+  "collections": [
+    {
+      "name": "chatSessions",
+      "documentId": "string",
+      "roles": {
+        "creator": "The user who created the AI chat session"
+      },
+      "fields": [
+        { "name": "userId", "type": "string" },
+        { "name": "title", "type": "string" },
+        { "name": "messages", "type": "array" },
+        { "name": "updatedAt", "type": "number" },
+        { "name": "isStarred", "type": "boolean" }
+      ]
+    },
+    {
+      "name": "roomMessages",
+      "documentId": "string",
+      "roles": {
+        "creator": "The user who sent the room message"
+      },
+      "fields": [
+        { "name": "text", "type": "string" },
+        { "name": "sender", "type": "string" },
+        { "name": "senderName", "type": "string" },
+        { "name": "timestamp", "type": "string" },
+        { "name": "isMe", "type": "boolean" },
+        { "name": "star", "type": "boolean" },
+        { "name": "pin", "type": "boolean" },
+        { "name": "isEdited", "type": "boolean" },
+        { "name": "file", "type": "map" }
+      ]
+    },
+    {
+      "name": "savedNotes",
+      "documentId": "string",
+      "roles": {
+        "creator": "The user who created the note"
+      },
+      "fields": [
+        { "name": "userId", "type": "string" },
+        { "name": "content", "type": "string" },
+        { "name": "timestamp", "type": "string" }
+      ]
+    },
+    {
+      "name": "taskHistory",
+      "documentId": "string",
+      "roles": {
+        "creator": "The user whose agent performed the task"
+      },
+      "fields": [
+        { "name": "userId", "type": "string" },
+        { "name": "command", "type": "string" },
+        { "name": "status", "type": "string" },
+        { "name": "toolUsed", "type": "string" },
+        { "name": "timestamp", "type": "string" },
+        { "name": "responseSummary", "type": "string" }
+      ]
+    }
+  ]
+}

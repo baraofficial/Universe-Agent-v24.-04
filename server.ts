@@ -59,7 +59,7 @@ async function startServer() {
         });
       }
 
-      const { prompt, history, systemPrompt } = req.body;
+      const { prompt, history, systemPrompt, file } = req.body;
       const lowerPrompt = prompt.toLowerCase();
 
       // INTERCEPT TEST AGENT (SINGLE FILE VIA OCTOKIT)
@@ -111,7 +111,10 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons D
         try {
           response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: promptWithContext,
+            contents: file ? [
+              { text: promptWithContext },
+              { inlineData: { data: file.dataUrl.split(',')[1], mimeType: file.mimeType } }
+            ] : promptWithContext,
             config: {
               systemInstruction: finalSystemInstruction,
               responseMimeType: "application/json",

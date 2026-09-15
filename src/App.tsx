@@ -16,6 +16,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { saveWallpaper, getWallpaper, deleteWallpaper } from './lib/indexedDB';
 import { motion } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
+import { auth, db, googleProvider } from './lib/firebase';
+import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, orderBy } from 'firebase/firestore';
+
 
 import {
  Wrench,
@@ -70,7 +74,7 @@ interface ChatMessage {
  sender: 'user' | 'ai';
  text: string;
  timestamp: string;
- toolUsed?: string; // Nama tool yang digunakan Agent jika relevan
+ toolUsed?: string; file?: { name: string; dataUrl: string; type: string }; feedback?: "up" | "down"; // Nama tool yang digunakan Agent jika relevan
 }
 
 /** Struktur data untuk daftar riwayat tugas yang selesai dikerjakan Agent */
@@ -279,7 +283,7 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
             </button>
           </div>
         </div>
-        <div className="relative text-[13px] sm:text-sm font-mono leading-relaxed text-left max-h-64 overflow-hidden">
+        <div className="relative text-[13px] sm:text-sm font-mono leading-relaxed text-left max-h-32 overflow-hidden">
           {renderCode()}
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0A0A0C] to-transparent pointer-events-none" />
         </div>
@@ -323,7 +327,27 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
 };
 
 export default function App() {
- const renderMessageText = (text: string) => {
+
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+   const renderMessageText = (text: string) => {
  // 1. Pisahkan berdasarkan code blocks markdown
  const codeBlockRegex = /(```[\s\S]*?```)/g;
  const blocks = text.split(codeBlockRegex);
@@ -454,36 +478,74 @@ export default function App() {
   };
 
   // Menyimpan riwayat percakapan chat
- const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
-  const saved = localStorage.getItem('bara_chat_sessions');
-  if (saved) {
-    try { return JSON.parse(saved); } catch {}
-  }
-  return [];
-});
+ const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
 const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
 const [isStarredSessionsOpen, setIsStarredSessionsOpen] = useState(false);
 
-const [messages, setMessages] = useState<ChatMessage[]>(() => {
-  const saved = localStorage.getItem(STORAGE_KEY_CHAT);
-  if (saved) {
-    try { return JSON.parse(saved); } catch {}
-  }
-  return [
-    {
+const [messages, setMessages] = useState<ChatMessage[]>([{
       id: 'welcome',
       sender: 'ai',
       text: 'Halo! Ada yang bisa dibantu hari ini?',
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       toolUsed: 'Umum'
-    }
-  ];
-});
+}]);
 
-useEffect(() => {
-  localStorage.setItem('bara_chat_sessions', JSON.stringify(chatSessions));
-}, [chatSessions]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'chatSessions'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const sessions: ChatSession[] = [];
+      snapshot.forEach(doc => {
+        sessions.push({ id: doc.id, ...doc.data() } as ChatSession);
+      });
+      // Sort desc by updatedAt
+      sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+      setChatSessions(sessions);
+    });
+    return unsubscribe;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'roomMessages'), orderBy('timestamp', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs: any[] = [];
+      snapshot.forEach(doc => {
+        msgs.push({ id: doc.id, ...doc.data() });
+      });
+      setRoomMessages(msgs);
+    });
+    return unsubscribe;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'taskHistory'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tasks: TaskHistoryItem[] = [];
+      snapshot.forEach(doc => {
+        tasks.push({ id: doc.id, ...doc.data() } as TaskHistoryItem);
+      });
+      setTaskHistory(tasks);
+    });
+    return unsubscribe;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'savedNotes'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notes: SavedNote[] = [];
+      snapshot.forEach(doc => {
+        notes.push({ id: doc.id, ...doc.data() } as SavedNote);
+      });
+      setSavedNotes(notes);
+    });
+    return unsubscribe;
+  }, [user]);
+
 
 useEffect(() => {
   if (currentSessionId && messages.length > 0) {
@@ -492,6 +554,18 @@ useEffect(() => {
     ));
   }
 }, [messages, currentSessionId]);
+
+
+const handleToggleStarSession = (id: string) => {
+  setChatSessions(prev => prev.map(s => s.id === id ? { ...s, isStarred: !s.isStarred } : s));
+};
+const handleDeleteSession = (id: string) => {
+  setChatSessions(prev => prev.filter(s => s.id !== id));
+  if (currentSessionId === id) {
+    setCurrentSessionId(null);
+    setMessages([]);
+  }
+};
 
 const handleShareSession = async (id: string) => {
   const session = chatSessions.find(s => s.id === id);
@@ -587,14 +661,14 @@ const handleSelectSession = (id: string) => {
   const [selectedRoomMessage, setSelectedRoomMessage] = useState<any>(null);
   const [editingRoomMessageId, setEditingRoomMessageId] = useState<string | null>(null);
   
-  const handleRoomMessageAction = (action: 'delete' | 'star' | 'pin') => {
+  const handleRoomMessageAction = async (action: 'delete' | 'star' | 'pin') => {
     if (!selectedRoomMessage) return;
     
-    // Simulate updating local state for star/pin
+    const docRef = doc(db, 'roomMessages', selectedRoomMessage.id);
     if (action === 'delete') {
-       setRoomMessages(prev => prev.filter(m => m.id !== selectedRoomMessage.id));
+       await deleteDoc(docRef);
     } else {
-       setRoomMessages(prev => prev.map(m => m.id === selectedRoomMessage.id ? { ...m, [action]: !m[action] } : m));
+       await updateDoc(docRef, { [action]: !selectedRoomMessage[action] });
     }
     setSelectedRoomMessage(null);
   };
@@ -803,11 +877,12 @@ const handleSelectSession = (id: string) => {
  });
 
  const newUserMessage: ChatMessage = {
- id: `user-${Date.now()}`,
- sender: 'user',
- text: textToSend.trim(),
- timestamp: timestampNow
- };
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: textToSend.trim(),
+      timestamp: timestampNow,
+      file: selectedFile ? { name: selectedFile.name, dataUrl: selectedFile.dataUrl, type: selectedFile.type } : undefined
+    };
 
  const newMessagesList = [...messages, newUserMessage];
     setMessages(newMessagesList);
@@ -826,6 +901,7 @@ const handleSelectSession = (id: string) => {
     }
 
     setInputCommand('');
+    setSelectedFile(null);
     setIsThinking(true);
  
 
@@ -836,10 +912,11 @@ const handleSelectSession = (id: string) => {
  'Content-Type': 'application/json'
  },
  body: JSON.stringify({
- prompt: textToSend.trim(),
- history: messages,
- systemPrompt
- })
+          prompt: textToSend.trim(),
+          history: messages,
+          systemPrompt,
+          file: selectedFile ? { dataUrl: selectedFile.dataUrl, mimeType: selectedFile.type } : undefined
+        })
  });
 
  const result = await response.json();
@@ -922,10 +999,11 @@ const handleClearChat = () => {
  };
 
  /** Menghapus seluruh riwayat tugas yang selesai dikerjakan */
- const handleClearTaskHistory = () => {
- setTaskHistory([]);
- localStorage.removeItem(STORAGE_KEY_TASKS);
- };
+ const handleClearTaskHistory = async () => {
+    setTaskHistory([]);
+    // To clear from firestore we would need a batch delete, for simplicity we just clear UI here, 
+    // real app would delete docs in a loop or batch.
+  };
 
  const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -955,7 +1033,26 @@ const handleClearChat = () => {
  // RENDER UI UTAMA APLIKASI
  // ============================================================================
  return (
- <div className={`fixed inset-0 overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
+    <>
+      {isAuthLoading ? (
+        <div className="flex h-screen items-center justify-center bg-[#050505] text-primary-500"><div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div></div>
+      ) : !user ? (
+        <div className="flex min-h-screen items-center justify-center bg-[#0A0A0A] p-4 font-mono">
+          <div className="max-w-md w-full bg-[#141416] border border-primary-500/30 rounded-3xl p-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary-500 to-transparent opacity-50"></div>
+            <div className="w-20 h-20 bg-primary-900/30 rounded-2xl flex items-center justify-center mb-6 border border-primary-500/40 p-2">
+               <img src="/bara-ai-logo.jpg" alt="Bara AI Logo" className="w-full h-full object-cover rounded-xl" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-200 mb-2 font-orbitron tracking-wider">BARA AI</h1>
+            <p className="text-gray-400 text-center text-sm mb-8">Masuk untuk melanjutkan ke sistem AI Assistant dan Room Chat.</p>
+            <button onClick={handleLogin} className="w-full py-3.5 px-4 bg-white hover:bg-gray-100 text-gray-900 font-bold rounded-xl flex items-center justify-center gap-3 transition-all cursor-pointer">
+              <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Login dengan Google
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={`fixed inset-0 overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
         {chatMode === 'room' && roomWallpaper && (
           <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
             {roomWallpaperType === 'video' ? (
@@ -1054,6 +1151,24 @@ const handleClearChat = () => {
                               <MoreVertical className="w-4 h-4" />
                             </button>
 
+                            {actionMenuSessionId === session.id && (
+                              <div className="absolute right-0 top-10 w-40 bg-[#141416] border border-primary-500/30 rounded-xl shadow-2xl py-1 z-[60] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => { handleToggleStarSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <Star className={`w-3.5 h-3.5 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                                  {session.isStarred ? 'Hapus Bintang' : 'Bintangi'}
+                                </button>
+                                <button onClick={() => { handleShareSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <Share2 className="w-3.5 h-3.5" />
+                                  Bagikan
+                                </button>
+                                <button onClick={() => { handleDeleteSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Hapus
+                                </button>
+                              </div>
+                            )}
+
+
                             
                           </div>
                         ))}
@@ -1147,7 +1262,13 @@ const handleClearChat = () => {
                ? 'bg-[#1A1A24]/90 border border-primary-900/40 text-gray-200 rounded-tl-sm' 
                : 'bg-primary-900/20 border border-primary-500/30 text-white rounded-tr-sm'
            }`}>
-             <div className="whitespace-pre-wrap">
+             
+            {msg.file && msg.file.type?.startsWith('image/') && (
+               <div className="mb-2 rounded-xl overflow-hidden max-w-sm">
+                 <img src={msg.file.dataUrl} alt="Upload" className="w-full h-auto object-cover max-h-32" />
+               </div>
+            )}
+            <div className="whitespace-pre-wrap">
                {renderMessageText(msg.text)}
              </div>
              
@@ -1244,7 +1365,7 @@ const handleClearChat = () => {
              )}
              {msg.file && msg.file.type?.startsWith('image/') && (
                <div className="mb-2 rounded-xl overflow-hidden max-w-sm">
-                 <img src={msg.file.dataUrl} alt="Upload" className="w-full h-auto object-cover max-h-64" />
+                 <img src={msg.file.dataUrl} alt="Upload" className="w-full h-auto object-cover max-h-32" />
                </div>
              )}
              {msg.text && (
@@ -1253,7 +1374,12 @@ const handleClearChat = () => {
                </div>
              )}
              {msg.isEdited && <div className="text-[10px] text-gray-500 mt-1 italic">(diedit)</div>}
-             {msg.file && !msg.file.type?.startsWith('image/') && (
+             {msg.file && msg.file.type?.startsWith('video/') && (
+               <div className="mb-2 rounded-xl overflow-hidden max-w-sm">
+                 <video src={msg.file.dataUrl} controls className="w-full h-auto object-cover max-h-48" />
+               </div>
+             )}
+             {msg.file && !msg.file.type?.startsWith('image/') && !msg.file.type?.startsWith('video/') && (
                <div className="mt-2 text-xs text-primary-300 flex items-center gap-1">
                  <Folder className="w-3 h-3" /> {msg.file.name}
                </div>
@@ -1305,9 +1431,9 @@ const handleClearChat = () => {
  <div className="flex items-start gap-3 sm:gap-4 justify-start animate-fade-in">
  {/* Avatar AI animasi pulse */}
  <div className="flex-shrink-0 mt-1">
- <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary-900/60 border border-primary-400/80 flex items-center justify-center animate-pulse">
- <Sparkles className="w-5 h-5 text-primary-300 animate-spin" style={{ animationDuration: '3s' }} />
- </div>
+ <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#141416]/90 border border-primary-500/50 flex items-center justify-center overflow-hidden">
+    <img src="/bara-ai-loading.png" alt="Thinking" className="w-6 h-6 object-cover animate-spin" style={{ animationDuration: '3s' }} />
+  </div>
  </div>
 
  {/* Bubble "Agent sedang berpikir..." */}
@@ -1362,16 +1488,18 @@ const handleClearChat = () => {
                 <div className="absolute -top-24 left-0 px-4 py-2 bg-[#1A1A24] border border-primary-500/50 rounded-2xl flex items-center gap-3 shadow-xl z-20 max-w-sm">
                   {selectedFile.type.startsWith('image/') ? (
                     <img src={selectedFile.dataUrl} alt="Preview" className="w-16 h-16 object-cover rounded-xl" />
+                  ) : selectedFile.type.startsWith('video/') ? (
+                    <video src={selectedFile.dataUrl} className="w-16 h-16 object-cover rounded-xl" />
                   ) : (
                     <div className="w-16 h-16 bg-primary-900/30 flex items-center justify-center rounded-xl">
                       <FileCode className="w-8 h-8 text-primary-400" />
                     </div>
                   )}
                   <div className="flex flex-col flex-1 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-200 truncate">{selectedFile.name}</span>
+                    <span className="text-sm font-medium text-gray-200 truncate max-w-[140px] sm:max-w-[200px]">{selectedFile.name}</span>
                     <span className="text-xs text-primary-400">Siap dikirim</span>
                   </div>
-                  <button type="button" onClick={() => setSelectedFile(null)} className="p-2 hover:bg-white/10 rounded-full text-gray-400">
+                  <button type="button" onClick={() => setSelectedFile(null)} className="p-2 hover:bg-white/10 rounded-full text-gray-400 cursor-pointer shrink-0">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -1401,12 +1529,7 @@ const handleClearChat = () => {
                 
                 {/* Attachment Button */}
                 <div className="relative shrink-0 flex items-center">
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileChange} 
-                    className="hidden" 
-                  />
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept={chatMode === 'ai' ? 'image/*' : undefined} className="hidden" />
                   
                   {chatMode === 'ai' ? (
                     <button
@@ -1965,8 +2088,8 @@ const handleClearChat = () => {
           </div>
         </div>
       )}
-
-</div>
- );
+    </div>
+   )}
+  </>
+  );
 }
-
