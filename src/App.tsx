@@ -17,7 +17,7 @@ import { saveWallpaper, getWallpaper, deleteWallpaper } from './lib/indexedDB';
 import { motion } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 import { auth, db, googleProvider } from './lib/firebase';
-import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { signInWithPopup, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, orderBy } from 'firebase/firestore';
 
 
@@ -342,8 +342,37 @@ export default function App() {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Firebase Login Error:", error);
+      if (error?.code === 'auth/unauthorized-domain' || error?.code === 'auth/popup-blocked') {
+        // Fallback: Use Google Identity Services (GIS) token client to bypass Authorized Domains check on Vercel
+        try {
+          if ((window as any).google?.accounts?.oauth2) {
+            const client = (window as any).google.accounts.oauth2.initTokenClient({
+              client_id: "244696811360-rngb712l6knv0qbr364rh2ipk0ke50jf.apps.googleusercontent.com",
+              scope: "email profile openid",
+              callback: async (response: any) => {
+                if (response.access_token) {
+                  try {
+                    const credential = GoogleAuthProvider.credential(null, response.access_token);
+                    await signInWithCredential(auth, credential);
+                  } catch (credErr: any) {
+                    console.error("Credential Sign-in Error:", credErr);
+                    alert("Gagal masuk dengan kredensial Google: " + credErr.message);
+                  }
+                }
+              }
+            });
+            client.requestAccessToken();
+            return;
+          }
+        } catch (fallbackErr) {
+          console.error("GSI Fallback Error:", fallbackErr);
+        }
+      }
+      if (error?.code !== 'auth/popup-closed-by-user') {
+        alert("Gagal login dengan Google: " + (error?.message || "Terjadi kesalahan"));
+      }
     }
   };
 
