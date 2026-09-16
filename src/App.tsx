@@ -1019,7 +1019,26 @@ const handleSelectSession = (id: string) => {
         })
  });
 
- const result = await response.json();
+ const rawResponseText = await response.text();
+    let result: any = null;
+    try {
+      result = JSON.parse(rawResponseText);
+    } catch (e) {
+      console.warn("API response is not valid JSON:", rawResponseText);
+      if (!response.ok || rawResponseText.includes("A server error") || rawResponseText.includes("<!DOCTYPE")) {
+        result = {
+          responseText: "Waduh, server Vercel/backend mengalami kendala saat memproses permintaan. Pastikan variabel GEMINI_API_KEY telah ditambahkan di Vercel Settings > Environment Variables.",
+          toolUsed: "Error",
+          status: "Gagal (Server Error)"
+        };
+      } else {
+        result = {
+          responseText: rawResponseText || "Maaf, respon tidak dapat dibaca.",
+          toolUsed: "Umum",
+          status: "Selesai"
+        };
+      }
+    }
 
  const aiReplyMessage: ChatMessage = {
  id: `ai-${Date.now()}`,
