@@ -335,29 +335,78 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+        if (currentUser.displayName) setUserName(currentUser.displayName);
+      } else {
+        const savedGuest = localStorage.getItem('bara_local_guest_session');
+        if (savedGuest) {
+          try {
+            const parsed = JSON.parse(savedGuest);
+            setUser(parsed);
+            if (parsed.displayName) setUserName(parsed.displayName);
+          } catch (e) {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      }
       setIsAuthLoading(false);
     });
     return unsubscribe;
   }, []);
 
   const handleGuestLogin = async (providedName?: string) => {
+    const finalName = (providedName || guestNameInput).trim() || 'Tamu Vercel';
+    setIsAuthLoading(true);
+    setLoginErrorMessage(null);
+
+    // Try Firebase Anonymous Auth first
     try {
-      setIsAuthLoading(true);
       const res = await signInAnonymously(auth);
-      const finalName = (providedName || guestNameInput).trim() || 'Tamu Vercel';
       if (res.user) {
         await updateProfile(res.user, {
           displayName: finalName,
           photoURL: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`
         });
-        setUser({ ...res.user, displayName: finalName } as FirebaseUser);
+        const updatedUser = { ...res.user, displayName: finalName } as FirebaseUser;
+        setUser(updatedUser);
+        setUserName(finalName);
+        localStorage.setItem('bara_local_guest_session', JSON.stringify(updatedUser));
+        setIsAuthLoading(false);
+        return;
       }
-    } catch (err: any) {
-      console.error("Guest login error:", err);
-      alert("Gagal masuk mode tamu: " + (err?.message || "Terjadi kesalahan"));
-    } finally {
-      setIsAuthLoading(false);
+    } catch (err) {
+      console.warn("Firebase Anonymous Auth failed/disabled, using instant local guest session:", err);
+    }
+
+    // Direct Instant Local Guest Session Fallback (100% works on Vercel without Firebase console setup)
+    const mockGuestUser = {
+      uid: 'guest_' + Math.random().toString(36).substring(2, 9),
+      displayName: finalName,
+      email: `${finalName.toLowerCase().replace(/[^a-z0-9]/g, '')}@bara.guest`,
+      photoURL: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`,
+      isAnonymous: true,
+    } as unknown as FirebaseUser;
+
+    localStorage.setItem('bara_local_guest_session', JSON.stringify(mockGuestUser));
+    setUser(mockGuestUser);
+    setUserName(finalName);
+    setIsAuthLoading(false);
+  };
+
+  const handleLogout = async () => {
+    localStorage.removeItem('bara_local_guest_session');
+    localStorage.removeItem(STORAGE_KEY_USERNAME);
+    setUser(null);
+    setUserName('');
+    setShowLogoutConfirm(false);
+    setIsSettingsMenuOpen(false);
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn("SignOut error:", e);
     }
   };
 
@@ -2170,12 +2219,7 @@ const handleClearChat = () => {
               <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2 rounded-xl bg-[#2A2A35] text-white hover:bg-[#3A3A45] font-medium transition-colors cursor-pointer text-sm">
                 Batal
               </button>
-              <button onClick={() => { 
-                setUserName(''); 
-                localStorage.removeItem(STORAGE_KEY_USERNAME); 
-                setShowLogoutConfirm(false); 
-                setIsSettingsMenuOpen(false); 
-              }} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
+              <button onClick={handleLogout} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
                 Oke
               </button>
             </div>
