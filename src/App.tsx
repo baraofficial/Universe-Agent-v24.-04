@@ -104,6 +104,7 @@ const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI. Asisten AI pribadi yg cerdas
 /** Kunci penyimpanan lokal (localStorage) */
 const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
 const STORAGE_KEY_CHAT = 'bara_ai_chat_history';
+const STORAGE_KEY_SESSIONS = 'bara_ai_chat_sessions';
 const STORAGE_KEY_TASKS = 'bara_ai_task_history';
 const STORAGE_KEY_NOTES = 'bara_ai_saved_notes';
 const STORAGE_KEY_USERNAME = 'bara_ai_username';
@@ -223,15 +224,16 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
   const [showFull, setShowFull] = useState(false);
   
   // parse language and code
-  const match = content.match(/```(\w*)\n([\s\S]*?)```/);
-  let language = match && match[1] ? match[1] : 'text';
-  const code = (match ? match[2] : content.replace(/```/g, '')).trim();
+  const match = content.match(/```(\w*)\s*\n?([\s\S]*?)```/);
+  let language = match && match[1] ? match[1].trim() : 'text';
+  const rawCode = match ? match[2] : content.replace(/```/g, '');
+  const code = rawCode.trim();
   
-  // Determine if this is a prompt
+  // Determine if this is a prompt or code
   const isPrompt = language.toLowerCase() === 'prompt' || (language.toLowerCase() === 'text' && code.toLowerCase().includes('prompt:'));
   if (isPrompt) language = 'prompt';
-  const typeText = isPrompt ? 'Prompt' : 'Code';
-  const title = isPrompt ? 'PROMPT' : language.toUpperCase();
+  const typeText = isPrompt ? 'Prompt' : 'Kode';
+  const title = isPrompt ? 'PROMPT' : (language ? language.toUpperCase() : 'CODE');
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -241,15 +243,18 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
 
   const renderCode = (isModal = false) => (
     <SyntaxHighlighter
-      language={language.toLowerCase() === 'prompt' ? 'text' : language.toLowerCase()}
+      language={language.toLowerCase() === 'prompt' ? 'text' : (language.toLowerCase() || 'javascript')}
       style={vscDarkPlus}
       customStyle={{
         margin: 0,
-        padding: '1.25rem',
-        background: '#0A0A0C',
-        fontSize: 'inherit',
+        padding: '1rem',
+        background: '#08080A',
+        fontSize: '0.85rem',
+        lineHeight: '1.6',
         height: isModal ? '100%' : 'auto',
       }}
+      showLineNumbers={true}
+      lineNumberStyle={{ minWidth: '2.2em', paddingRight: '1em', color: '#52525b', textAlign: 'right', userSelect: 'none' }}
       wrapLongLines={false}
     >
       {code}
@@ -258,44 +263,44 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
 
   return (
     <>
-      <div className="my-4 rounded-xl border border-primary-500/40 bg-[#0A0A0C] overflow-hidden w-full max-w-full shadow-lg">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#141416]/90 border-b border-primary-500/30">
+      <div className="my-3 rounded-xl border border-primary-500/40 bg-[#08080A] overflow-hidden w-full max-w-full shadow-2xl text-left font-mono">
+        <div className="flex items-center justify-between px-3.5 py-2 bg-[#141416] border-b border-primary-500/30">
           <div className="flex items-center gap-2">
             {isPrompt ? <MessageSquare className="w-4 h-4 text-primary-400" /> : <FileCode className="w-4 h-4 text-primary-400" />}
-            <span className="text-xs font-mono text-primary-300 tracking-wider font-semibold uppercase">{title}</span>
+            <span className="text-xs font-mono text-primary-300 font-bold uppercase tracking-wider">{title}</span>
           </div>
           <div className="flex gap-2">
             <button 
               type="button"
               onClick={() => setShowFull(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[11px] sm:text-xs font-mono font-medium cursor-pointer"
+              title="Buka Layar Penuh"
             >
               <Eye className="w-3.5 h-3.5" />
-              Lihat {typeText}
+              <span className="hidden sm:inline">Layar Penuh</span>
             </button>
             <button 
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[10px] sm:text-xs font-mono font-medium cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-[11px] sm:text-xs font-mono font-medium cursor-pointer"
             >
-              {copied ? <CheckIcon className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Tersalin' : `Salin ${typeText}`}
             </button>
           </div>
         </div>
-        <div className="relative text-[13px] sm:text-sm font-mono leading-relaxed text-left max-h-32 overflow-hidden">
+        <div className="relative text-[13px] sm:text-sm font-mono leading-relaxed text-left overflow-x-auto overflow-y-auto max-h-[520px] w-full bg-[#08080A]">
           {renderCode()}
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0A0A0C] to-transparent pointer-events-none" />
         </div>
       </div>
 
       {showFull && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-8 animate-fade-in">
-          <div className="bg-[#0A0A0C] w-full max-w-5xl max-h-full rounded-2xl border border-primary-500/40 shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-[#141416]/90 border-b border-primary-500/30 shrink-0">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-6 animate-fade-in" onClick={() => setShowFull(false)}>
+          <div className="bg-[#0A0A0C] w-full max-w-5xl h-[85vh] rounded-2xl border border-primary-500/40 shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 bg-[#141416] border-b border-primary-500/30 shrink-0">
               <div className="flex items-center gap-2">
                 {isPrompt ? <MessageSquare className="w-5 h-5 text-primary-400" /> : <FileCode className="w-5 h-5 text-primary-400" />}
-                <span className="text-sm font-mono text-primary-300 tracking-wider font-semibold uppercase">{title}</span>
+                <span className="text-sm font-mono text-primary-300 tracking-wider font-bold uppercase">{title}</span>
               </div>
               <div className="flex items-center gap-3">
                 <button 
@@ -303,7 +308,7 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
                   onClick={handleCopy}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 transition-colors text-xs font-mono font-medium cursor-pointer"
                 >
-                  {copied ? <CheckIcon className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <CheckIcon className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                   {copied ? 'Tersalin' : `Salin ${typeText}`}
                 </button>
                 <button 
@@ -316,7 +321,7 @@ const CodeBlock = ({ content }: { content: string; key?: number | string }) => {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto text-[13px] sm:text-sm font-mono leading-relaxed text-left">
+            <div className="flex-1 overflow-auto text-[13px] sm:text-sm font-mono leading-relaxed text-left bg-[#08080A]">
               {renderCode(true)}
             </div>
           </div>
@@ -578,10 +583,24 @@ export default function App() {
   };
 
   // Menyimpan riwayat percakapan chat
- const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
-const [isStarredSessionsOpen, setIsStarredSessionsOpen] = useState(false);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_SESSIONS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Gagal membaca chat sessions:", e);
+      }
+    }
+    return [];
+  });
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
+  const [isStarredSessionsOpen, setIsStarredSessionsOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(chatSessions));
+  }, [chatSessions]);
 
 const [messages, setMessages] = useState<ChatMessage[]>([{
       id: 'welcome',
@@ -1291,49 +1310,75 @@ const handleClearChat = () => {
                       </button>
                     )}
 
-                    {chatMode === 'ai' && chatSessions.length > 0 && (
-                      <div className="mt-4 flex flex-col gap-2 overflow-y-auto max-h-[40vh] pr-1 pb-4">
-                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 px-1">Riwayat Chat</div>
-                        {chatSessions.map(session => (
-                          <div key={session.id} onClick={() => handleSelectSession(session.id)} className="group relative flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/10">
-                            <div className="flex items-center gap-2 overflow-hidden flex-1">
-                              <MessageSquare className="w-4 h-4 text-gray-400 shrink-0" />
-                              <span className={`text-sm truncate ${currentSessionId === session.id ? 'text-primary-300 font-medium' : 'text-gray-300'}`}>
-                                {session.title}
-                              </span>
-                            </div>
-                            
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActionMenuSessionId(actionMenuSessionId === session.id ? null : session.id);
-                              }}
-                              className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                    {chatMode === 'ai' && (
+                      <div className="mt-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[50vh] pr-1 pb-4">
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 px-1">Riwayat Chat Tersimpan</div>
+                        {chatSessions.length === 0 ? (
+                          <div className="text-xs text-gray-500 italic px-2 py-3 bg-[#141416]/50 rounded-xl text-center border border-white/5">
+                            Belum ada percakapan tersimpan
+                          </div>
+                        ) : (
+                          chatSessions.map(session => (
+                            <div 
+                              key={session.id} 
+                              onClick={() => handleSelectSession(session.id)} 
+                              className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer border ${
+                                currentSessionId === session.id 
+                                  ? 'bg-primary-900/40 border-primary-500/50 text-primary-300 shadow-md' 
+                                  : 'bg-[#141416]/80 hover:bg-white/5 border-white/5 hover:border-white/10 text-gray-300'
+                              }`}
                             >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {actionMenuSessionId === session.id && (
-                              <div className="absolute right-0 top-10 w-40 bg-[#141416] border border-primary-500/30 rounded-xl shadow-2xl py-1 z-[60] animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => { handleToggleStarSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
-                                  <Star className={`w-3.5 h-3.5 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                                  {session.isStarred ? 'Hapus Bintang' : 'Bintangi'}
-                                </button>
-                                <button onClick={() => { handleShareSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
-                                  <Share2 className="w-3.5 h-3.5" />
-                                  Bagikan
-                                </button>
-                                <button onClick={() => { handleDeleteSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors">
+                              <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0 pr-1">
+                                <MessageSquare className={`w-4 h-4 shrink-0 ${currentSessionId === session.id ? 'text-primary-400' : 'text-gray-500'}`} />
+                                <span className="text-xs sm:text-sm truncate font-medium">
+                                  {session.title || 'Percakapan Baru'}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-1 shrink-0">
+                                {session.isStarred && (
+                                  <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                )}
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSession(session.id);
+                                  }}
+                                  className="p-1 rounded-md hover:bg-red-500/20 text-gray-400 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
+                                  title="Hapus Pesan Ini"
+                                >
                                   <Trash2 className="w-3.5 h-3.5" />
-                                  Hapus
+                                </button>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActionMenuSessionId(actionMenuSessionId === session.id ? null : session.id);
+                                  }}
+                                  className="p-1 rounded-md hover:bg-white/10 text-gray-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
+                                >
+                                  <MoreVertical className="w-3.5 h-3.5" />
                                 </button>
                               </div>
-                            )}
 
-
-                            
-                          </div>
-                        ))}
+                              {actionMenuSessionId === session.id && (
+                                <div className="absolute right-0 top-10 w-40 bg-[#141416] border border-primary-500/30 rounded-xl shadow-2xl py-1 z-[60] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                  <button onClick={() => { handleToggleStarSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                    <Star className={`w-3.5 h-3.5 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                                    {session.isStarred ? 'Hapus Bintang' : 'Bintangi'}
+                                  </button>
+                                  <button onClick={() => { handleShareSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
+                                    <Share2 className="w-3.5 h-3.5" />
+                                    Bagikan
+                                  </button>
+                                  <button onClick={() => { handleDeleteSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Hapus
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>
