@@ -52,52 +52,74 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons D
 
     const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${prompt}`;
 
-    let response;
-    let retries = 3;
-    let delay = 1000;
-    
-    while (retries > 0) {
-      try {
-        response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
-          contents: file ? [
-            { text: promptWithContext },
-            { inlineData: { data: file.dataUrl.split(',')[1], mimeType: file.mimeType } }
-          ] : promptWithContext,
-          config: {
-            systemInstruction: finalSystemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                responseText: {
-                  type: Type.STRING,
-                  description: "Jawaban dari agent. Jika menyertakan sumber referensi, gunakan format markdown link [Nama Sumber](URL)."
+    const candidateModels = [
+      "gemini-3.8-flash",
+      "gemini-flash-latest",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-pro-preview"
+    ];
+
+    let response: any = null;
+    let lastError: any = null;
+
+    for (const modelName of candidateModels) {
+      let retries = 2;
+      let delay = 500;
+      let success = false;
+
+      while (retries > 0) {
+        try {
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents: file ? [
+              { text: promptWithContext },
+              { inlineData: { data: file.dataUrl.split(',')[1], mimeType: file.mimeType } }
+            ] : promptWithContext,
+            config: {
+              systemInstruction: finalSystemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  responseText: {
+                    type: Type.STRING,
+                    description: "Jawaban dari agent. Jika menyertakan sumber referensi, gunakan format markdown link [Nama Sumber](URL)."
+                  },
+                  toolUsed: {
+                    type: Type.STRING,
+                    description: "Tool yang relevan (Browser, Kalkulator, Catatan, Umum, dsb.)"
+                  },
+                  status: {
+                    type: Type.STRING,
+                    description: "Status eksekusi (Selesai, Ditolak (Ilegal), dll)"
+                  }
                 },
-                toolUsed: {
-                  type: Type.STRING,
-                  description: "Tool yang relevan (Browser, Kalkulator, Catatan, Umum, dsb.)"
-                },
-                status: {
-                  type: Type.STRING,
-                  description: "Status eksekusi (Selesai, Ditolak (Ilegal), dll)"
-                }
-              },
-              required: ["responseText", "toolUsed", "status"]
+                required: ["responseText", "toolUsed", "status"]
+              }
             }
+          });
+          success = true;
+          break;
+        } catch (err: any) {
+          lastError = err;
+          const isBusy = err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("high demand");
+          if (isBusy) {
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              delay *= 2;
+            }
+          } else {
+            break;
           }
-        });
-        break;
-      } catch (error: any) {
-        if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE")) {
-          retries--;
-          if (retries === 0) throw error;
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-        } else {
-          throw error;
         }
       }
+
+      if (success) break;
+    }
+
+    if (!response) {
+      throw lastError || new Error("Semua model Gemini sedang sibuk. Silakan coba beberapa saat lagi.");
     }
 
     const outputStr = response?.text || "{}";
