@@ -1592,10 +1592,11 @@ const handleClearChat = () => {
  {isThinking && chatMode === 'ai' && (
  <div className="flex items-start gap-3 sm:gap-4 justify-start animate-fade-in">
  {/* Avatar AI animasi pulse */}
- <div className="flex-shrink-0 mt-1">
- <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#141416]/90 border border-primary-500/50 flex items-center justify-center overflow-hidden">
-    <img src="/bara-ai-loading.png" alt="Thinking" className="w-6 h-6 object-cover animate-spin" style={{ animationDuration: '3s' }} />
-  </div>
+ <div className="flex-shrink-0 relative mt-1">
+   <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-primary-400/80 flex items-center justify-center overflow-hidden bg-[#141416]/90 shadow-[0_0_12px_rgba(34,197,94,0.3)] animate-pulse">
+     <img src="/bara-ai-logo.jpg" alt="Bara AI Berpikir" className="w-full h-full object-cover" />
+   </div>
+   <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#0A0A0A] animate-ping" />
  </div>
 
  {/* Bubble "Agent sedang berpikir..." */}
