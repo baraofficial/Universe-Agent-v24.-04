@@ -421,31 +421,11 @@ export default function App() {
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error("Firebase Login Error:", error);
-      if (error?.code === 'auth/unauthorized-domain' || error?.code === 'auth/popup-blocked') {
-        try {
-          if ((window as any).google?.accounts?.oauth2) {
-            const client = (window as any).google.accounts.oauth2.initTokenClient({
-              client_id: "244696811360-rngb712l6knv0qbr364rh2ipk0ke50jf.apps.googleusercontent.com",
-              scope: "email profile openid",
-              callback: async (response: any) => {
-                if (response.access_token) {
-                  try {
-                    const credential = GoogleAuthProvider.credential(null, response.access_token);
-                    await signInWithCredential(auth, credential);
-                  } catch (credErr: any) {
-                    console.error("Credential Sign-in Error:", credErr);
-                    setLoginErrorMessage("Domain Vercel ini belum diizinkan oleh Firebase Auth. Gunakan 'Masuk Mode Tamu' di bawah ini untuk mengakses aplikasi!");
-                  }
-                }
-              }
-            });
-            client.requestAccessToken();
-            return;
-          }
-        } catch (fallbackErr) {
-          console.error("GSI Fallback Error:", fallbackErr);
-        }
-        setLoginErrorMessage("Domain Vercel belum diotorisasi di Firebase Console. Silakan gunakan tombol 'Masuk Mode Tamu (Guest)' di bawah ini untuk langsung mengakses seluruh fitur BARA AI!");
+      if (error?.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        setLoginErrorMessage(`Domain "${currentDomain}" belum diotorisasi di Firebase Console (bara-ai-9cd30 > Authentication > Settings > Authorized Domains). Silakan tambahkan domain tersebut atau klik "Masuk Mode Tamu" di bawah untuk langsung menggunakan BARA AI.`);
+      } else if (error?.code === 'auth/popup-blocked') {
+        setLoginErrorMessage("Jendela popup login diblokir oleh peramban (browser) Anda. Silakan izinkan popup untuk situs ini atau gunakan Mode Tamu.");
       } else if (error?.code !== 'auth/popup-closed-by-user') {
         setLoginErrorMessage("Gagal login dengan Google: " + (error?.message || "Terjadi kesalahan"));
       }
