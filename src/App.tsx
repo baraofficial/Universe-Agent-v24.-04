@@ -22,6 +22,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc
 
 
 import {
+ Settings,
  Wrench,
  Bot,
  User,
@@ -609,20 +610,22 @@ export function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          prompt: userMsg.text,
           message: userMsg.text,
           file: userMsg.file,
-          history: newMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
+          history: newMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', sender: m.sender, text: m.text })),
           systemPrompt
         })
       });
 
       const data = await res.json();
-      const aiReplyText = data.reply || data.text || (data.error ? `Error: ${data.error}` : "Maaf, terjadi kendala saat memproses permintaan.");
+      const aiReplyText = data.responseText || data.reply || data.text || data.message || (data.error ? `Error: ${data.error}` : "Maaf, terjadi kendala saat memproses permintaan.");
       
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
         text: aiReplyText,
+        toolUsed: data.toolUsed,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, aiMsg]);
@@ -991,14 +994,14 @@ export function App() {
                     onClick={() => setIsRoomSettingsOpen(true)}
                     className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
                   >
-                    <Wrench className="w-5 h-5" />
+                    <Settings className="w-5 h-5" />
                   </button>
                 ) : (
                   <button 
                     onClick={() => setIsSettingsMenuOpen(true)}
                     className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
                   >
-                    <Wrench className="w-5 h-5" />
+                    <Settings className="w-5 h-5" />
                   </button>
                 )}
               </div>

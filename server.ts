@@ -67,8 +67,16 @@ async function startServer() {
         });
       }
 
-      const { prompt, history, systemPrompt, file } = req.body;
-      const lowerPrompt = prompt.toLowerCase();
+      const { prompt, message, history, systemPrompt, file } = req.body || {};
+      const userPrompt = (prompt || message || "").trim();
+      if (!userPrompt && !file) {
+        return res.json({
+          responseText: "Silakan masukkan pesan.",
+          toolUsed: "Error",
+          status: "Gagal"
+        });
+      }
+      const lowerPrompt = userPrompt.toLowerCase();
 
       // INTERCEPT TEST AGENT (SINGLE FILE VIA OCTOKIT)
       if (lowerPrompt.includes("test agent")) {
@@ -97,19 +105,21 @@ async function startServer() {
       // Transform history for better context
       let chatContext = "";
       if (history && history.length > 0) {
-        chatContext = history.slice(-6).map((msg: any) => 
-          `${msg.sender === 'user' ? 'User' : 'Agent'}: ${msg.text}`
-        ).join('\n\n');
+        chatContext = history.slice(-6).map((msg: any) => {
+          const sender = msg.sender === 'user' || msg.role === 'user' ? 'User' : 'Agent';
+          const text = msg.text || (msg.parts && msg.parts[0] ? msg.parts[0].text : '');
+          return `${sender}: ${text}`;
+        }).filter(Boolean).join('\n\n');
       }
 
-            const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
+      const finalSystemInstruction = `KAMU HARUS MEMATUHI INSTRUKSI SYSTEM INI DENGAN KETAT DAN TANPA TERKECUALI:
 
 <system_prompt_dari_user>
 ${systemPrompt || "Kamu adalah Bara, AI Agent teman ngobrol yang asik, cerdas, kreatif dan profesional."}
 </system_prompt_dari_user>
 ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):\n1. Kamu WAJIB merespons DALAM FORMAT JSON sesuai dengan schema yang diberikan.\n2. Setiap kali kamu memberikan kode atau skrip pemrograman (Python, HTML, Node.js, JavaScript, CSS, SQL, Shell, dll), kamu WAJIB membungkus kode tersebut di dalam format markdown code block bertanda bahasa, contoh: \`\`\`python\\n...\\n\`\`\` atau \`\`\`html\\n...\\n\`\`\`. DILARANG menyatukan kode ke paragraf biasa tanpa code block!\n3. Jika user meminta untuk melakukan update ke github, commit, atau push kode, kamu WAJIB mengisi property 'gitAction' di JSON dengan 'commitMessage' yang mendeskripsikan perubahan tersebut.\n4. Selalu patuhi identitas, gaya bahasa, aturan, dan larangan yang ditetapkan dalam <system_prompt_dari_user> di atas.`;
 
-  const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${prompt}`;
+  const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${userPrompt}`;
 
       const candidateModels = [
         "gemini-3.8-flash",
