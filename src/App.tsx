@@ -332,9 +332,32 @@ export function App() {
   const [isPromptSavedToast, setIsPromptSavedToast] = useState(false);
   
   const [chatMode, setChatMode] = useState<'room' | 'ai'>('room');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CHAT);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SESSIONS);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
+    try {
+      const savedSessions = localStorage.getItem(STORAGE_KEY_SESSIONS);
+      if (savedSessions) {
+        const parsed: ChatSession[] = JSON.parse(savedSessions);
+        if (parsed.length > 0) return parsed[0].id;
+      }
+    } catch (e) {}
+    return 'session_main';
+  });
   
   const [roomMessages, setRoomMessages] = useState<any[]>([]);
   const [selectedRoomMessage, setSelectedRoomMessage] = useState<any | null>(null);
@@ -420,12 +443,60 @@ export function App() {
       setUser(currentUser);
       setIsAuthLoading(false);
       if (currentUser) {
-        if (currentUser.displayName) setUserName(currentUser.displayName);
+        const savedCustomName = localStorage.getItem(STORAGE_KEY_USERNAME);
+        if (savedCustomName) {
+          setUserName(savedCustomName);
+        } else if (currentUser.displayName) {
+          setUserName(currentUser.displayName);
+          localStorage.setItem(STORAGE_KEY_USERNAME, currentUser.displayName);
+        }
         if (currentUser.photoURL) setUserAvatar(currentUser.photoURL);
       }
     });
     return () => unsubscribe();
   }, []);
+
+  // Save active AI messages and sync with chat sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
+      
+      if (messages.length > 0) {
+        const firstUserMsg = messages.find(m => m.sender === 'user')?.text || 'Percakapan Bara AI';
+        const title = firstUserMsg.slice(0, 30) + (firstUserMsg.length > 30 ? '...' : '');
+        const sessionId = currentSessionId || 'session_main';
+
+        setChatSessions(prev => {
+          const existingIndex = prev.findIndex(s => s.id === sessionId);
+          const updatedSession: ChatSession = {
+            id: sessionId,
+            title: title,
+            messages: messages,
+            updatedAt: Date.now(),
+            isStarred: existingIndex >= 0 ? prev[existingIndex].isStarred : false,
+          };
+
+          if (existingIndex >= 0) {
+            const copy = [...prev];
+            copy[existingIndex] = updatedSession;
+            return copy;
+          } else {
+            return [updatedSession, ...prev];
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to save chat to localStorage", e);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(chatSessions));
+    } catch (e) {
+      console.error("Failed to save chat sessions to localStorage", e);
+    }
+  }, [chatSessions]);
 
   useEffect(() => {
     getWallpaper().then(res => {
@@ -1167,31 +1238,36 @@ export function App() {
                               <Folder className="w-3 h-3" /> {msg.file.name}
                             </div>
                           )}
-                        </div>
-                        {/* Indicators & Actions */}
-                        <div className={`flex items-center gap-1.5 px-1 mt-0.5 text-gray-500 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSelectedRoomMessage(msg); }}
-                            className="p-1 hover:text-primary-400 transition-colors cursor-pointer text-[10px] flex items-center gap-1 text-gray-400 hover:bg-white/5 rounded-md px-1.5 py-0.5"
-                            title="Opsi Pesan (Hapus, Bintang, Sematkan)"
-                          >
-                            <MoreVertical className="w-3.5 h-3.5" />
-                          </button>
-                          {msg.star && <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />}
-                          {msg.pin && <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
-                          {isMe && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingRoomMessageId(msg.id);
-                                setInputCommand(msg.text);
-                              }}
-                              className="p-0.5 hover:text-primary-400 transition-colors cursor-pointer"
-                              title="Edit Pesan"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+
+                          {/* Indicators & Actions INSIDE bubble */}
+                          <div className="mt-2 pt-1.5 border-t border-white/10 flex items-center justify-between text-[11px] gap-2 select-none">
+                            <div className="flex items-center gap-1.5">
+                              {msg.star && <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />}
+                              {msg.pin && <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {isMe && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRoomMessageId(msg.id);
+                                    setInputCommand(msg.text);
+                                  }}
+                                  className="p-1 hover:text-primary-300 hover:bg-white/10 rounded transition-colors cursor-pointer text-gray-400"
+                                  title="Edit Pesan"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </button>
+                              )}
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSelectedRoomMessage(msg); }}
+                                className="p-1 hover:text-primary-300 hover:bg-white/10 rounded transition-colors cursor-pointer text-gray-400"
+                                title="Opsi Pesan (Hapus, Bintang, Sematkan)"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       
@@ -1686,7 +1762,7 @@ export function App() {
                 
                 <div className="p-5 overflow-y-auto flex flex-col gap-6">
                   {/* Foto Profil */}
-                  <div className="flex flex-col gap-3 items-center">
+                  <div className="flex flex-col gap-2 items-center">
                     <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
                       <div className="w-20 h-20 rounded-full bg-primary-900/30 border-2 border-primary-500/50 flex items-center justify-center overflow-hidden">
                         {userAvatar ? (
@@ -1701,6 +1777,12 @@ export function App() {
                       <input type="file" ref={avatarInputRef} accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                     </div>
                     <h3 className="text-xs font-mono text-primary-400">Ubah Foto Profil</h3>
+                    
+                    {/* Akun Gmail User */}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-900/20 border border-primary-500/30 rounded-full text-xs text-gray-300 font-mono mt-1 max-w-[260px]">
+                      <UserCircle className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                      <span className="truncate">{user?.email || (effectiveUser as any)?.email || 'Tamu / Mode Pengunjung'}</span>
+                    </div>
                   </div>
                   
                   {/* Edit Username */}
@@ -1715,9 +1797,29 @@ export function App() {
                         className="flex-1 bg-primary-900/10 border border-primary-500/30 rounded-xl px-3 py-2 text-sm text-gray-200 disabled:opacity-50"
                       />
                       {isEditingUserName ? (
-                        <button onClick={() => { setUserName(tempUserName); setIsEditingUserName(false); }} className="p-2 bg-primary-600 rounded-xl text-white cursor-pointer"><CheckCircle2 className="w-4 h-4" /></button>
+                        <button 
+                          onClick={async () => { 
+                            const newName = tempUserName.trim() || 'Bara User';
+                            setUserName(newName); 
+                            localStorage.setItem(STORAGE_KEY_USERNAME, newName);
+                            setIsEditingUserName(false); 
+                            if (auth.currentUser) {
+                              try {
+                                await updateProfile(auth.currentUser, { displayName: newName });
+                              } catch (e) {
+                                console.error("Failed to update Firebase profile name", e);
+                              }
+                            }
+                          }} 
+                          className="p-2 bg-primary-600 rounded-xl text-white cursor-pointer"
+                          title="Simpan Username"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
                       ) : (
-                        <button onClick={() => { setTempUserName(userName); setIsEditingUserName(true); }} className="p-2 bg-primary-900/30 text-primary-400 rounded-xl cursor-pointer"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => { setTempUserName(userName); setIsEditingUserName(true); }} className="p-2 bg-primary-900/30 text-primary-400 rounded-xl cursor-pointer" title="Edit Username">
+                          <Pencil className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
                   </div>
