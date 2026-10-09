@@ -54,12 +54,23 @@ import {
  UserCircle, Users, Image as ImageIcon2, Folder, Star, Pin, StarOff, PinOff, LogOut, Pencil,
  Plus,
  Upload,
- Camera
-, Menu, Reply, X, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon, MoreVertical } from 'lucide-react';
+ Camera,
+ Maximize2,
+ Minimize2,
+ Menu, Reply, X, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon, MoreVertical } from 'lucide-react';
 
 // ============================================================================
 // STRUKTUR DATA (TYPES & INTERFACES)
 // ============================================================================
+
+/** Struktur data untuk proyek website buatan Bara AI */
+interface WebsiteProject {
+  id: string;
+  title: string;
+  code: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 /** Struktur data untuk pesan chat antara User dan AI Agent */
 interface ChatSession {
@@ -109,6 +120,95 @@ const STORAGE_KEY_SESSIONS = 'bara_ai_chat_sessions';
 const STORAGE_KEY_TASKS = 'bara_ai_task_history';
 const STORAGE_KEY_NOTES = 'bara_ai_saved_notes';
 const STORAGE_KEY_USERNAME = 'bara_ai_username';
+const STORAGE_KEY_WEBSITES = 'bara_ai_created_websites';
+
+/** Default Template Website HTML untuk Bara AI Web Creator */
+const DEFAULT_WEBSITE_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bara AI Web Creator & Official Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #08080a; color: #f3f4f6; }
+    .font-orbitron { font-family: 'Orbitron', sans-serif; }
+    .glass { background: rgba(20, 20, 28, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(139, 92, 246, 0.25); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+  <!-- Navbar -->
+  <nav class="sticky top-0 z-50 glass px-6 py-4 flex items-center justify-between shadow-xl">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center font-orbitron font-bold text-purple-400">
+        BA
+      </div>
+      <span class="font-orbitron font-bold text-xl tracking-wider text-white">BARA <span class="text-purple-400">AI</span></span>
+    </div>
+    <div class="hidden md:flex items-center gap-6 text-sm text-gray-300">
+      <a href="#fitur" class="hover:text-purple-400 transition-colors">Fitur</a>
+      <a href="#showcase" class="hover:text-purple-400 transition-colors">Showcase</a>
+      <a href="#kontak" class="hover:text-purple-400 transition-colors">Kontak</a>
+    </div>
+    <button onclick="alert('Bara AI Website Builder Siap Digunakan!')" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-purple-600/30">
+      Coba Bara AI
+    </button>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="max-w-5xl mx-auto px-6 py-16 text-center">
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-purple-500/30 text-purple-300 text-xs font-semibold mb-6">
+      <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Website Builder Engine
+    </div>
+    <h1 class="text-4xl md:text-6xl font-extrabold font-orbitron tracking-tight text-white mb-6 leading-tight">
+      Buat Website Impian <br><span class="bg-gradient-to-r from-purple-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">Secara Instan Bersama Bara AI</span>
+    </h1>
+    <p class="text-gray-400 text-base md:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+      Ketik instruksi atau ide website kamu di chat room Bara AI, dan AI akan otomatis menghasilkan tampilan web modern, interaktif, serta siap dipublikasikan!
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <button onclick="document.getElementById('fitur').scrollIntoView({behavior:'smooth'})" class="px-7 py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-purple-600/25">
+        Eksplor Fitur <i class="fa-solid fa-arrow-right ml-2"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Features Grid -->
+  <section id="fitur" class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl font-bold font-orbitron text-center text-white mb-10">Keunggulan Web Creator Bara AI</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Generasi Instan</h3>
+        <p class="text-gray-400 text-sm">Proses pembuatan website berbasis AI dalam hitungan detik dari instruksi bahasa Indonesia.</p>
+      </div>
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-code"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Edit & Salin Kode</h3>
+        <p class="text-gray-400 text-sm">Kamu dapat mengedit kode HTML/CSS secara langsung, menyalinnya ke clipboard, atau mengunduhnya.</p>
+      </div>
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-mobile-screen"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Responsif & Modern</h3>
+        <p class="text-gray-400 text-sm">Tampilan otomatis menyesuaikan dengan layar HP, tablet, maupun monitor desktop.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="glass mt-16 py-8 border-t border-purple-500/20 text-center text-gray-400 text-sm">
+    <p>© 2026 Bara Official & Bara AI Agent. All Rights Reserved.</p>
+  </footer>
+</body>
+</html>`;
 
 /** Daftar Tools yang tersedia untuk BARA AI */
 const AGENT_TOOLS = [
@@ -385,6 +485,101 @@ export function App() {
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
+  
+  // Website Builder States
+  const [websites, setWebsites] = useState<WebsiteProject[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_WEBSITES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [{
+      id: 'default_website_1',
+      title: 'Bara AI Official Hub & Landing Page',
+      code: DEFAULT_WEBSITE_HTML,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }];
+  });
+
+  const [activeWebsiteId, setActiveWebsiteId] = useState<string>(() => {
+    return websites[0]?.id || 'default_website_1';
+  });
+
+  const [isWebsitePreviewOpen, setIsWebsitePreviewOpen] = useState(false);
+  const [isWebsiteListOpen, setIsWebsiteListOpen] = useState(false);
+  const [isEditingWebsiteCode, setIsEditingWebsiteCode] = useState(false);
+  const [isWebsiteFullscreen, setIsWebsiteFullscreen] = useState(false);
+  const [is3DotMenuOpen, setIs3DotMenuOpen] = useState(false);
+  const [editingWebsiteCodeText, setEditingWebsiteCodeText] = useState('');
+  const [websiteCopiedToast, setWebsiteCopiedToast] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_WEBSITES, JSON.stringify(websites));
+    } catch (e) {
+      console.error("Failed to save websites to localStorage", e);
+    }
+  }, [websites]);
+
+  const activeWebsite = websites.find(w => w.id === activeWebsiteId) || websites[0];
+  const activeWebsiteCode = activeWebsite?.code || DEFAULT_WEBSITE_HTML;
+
+  const prepareIframeSrcDoc = (rawCode: string) => {
+    let doc = rawCode || DEFAULT_WEBSITE_HTML;
+    if (!doc.toLowerCase().includes('<!doctype html') && !doc.toLowerCase().includes('<html')) {
+      doc = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-[#09090b] text-gray-100 p-4">
+  ${doc}
+</body>
+</html>`;
+    }
+    
+    const errorBoundaryScript = `
+      <script>
+        window.onerror = function(msg, url, line) {
+          console.error("Website Preview Error:", msg, line);
+          var errDiv = document.getElementById('preview-error-banner');
+          if (!errDiv) {
+            errDiv = document.createElement('div');
+            errDiv.id = 'preview-error-banner';
+            errDiv.style.position = 'fixed';
+            errDiv.style.bottom = '10px';
+            errDiv.style.left = '10px';
+            errDiv.style.right = '10px';
+            errDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+            errDiv.style.color = '#fff';
+            errDiv.style.padding = '8px 12px';
+            errDiv.style.borderRadius = '8px';
+            errDiv.style.fontSize = '12px';
+            errDiv.style.fontFamily = 'monospace';
+            errDiv.style.zIndex = '999999';
+            document.body.appendChild(errDiv);
+          }
+          errDiv.innerText = "Info Script: " + msg + " (Baris " + line + ")";
+          return true;
+        };
+      </script>
+    `;
+    
+    if (doc.includes('</head>')) {
+      doc = doc.replace('</head>', `${errorBoundaryScript}</head>`);
+    } else {
+      doc = errorBoundaryScript + doc;
+    }
+    
+    return doc;
+  };
   
   const [isEditingUserName, setIsEditingUserName] = useState(false);
   const [tempUserName, setTempUserName] = useState('');
@@ -692,6 +887,47 @@ export function App() {
       const data = await res.json();
       const aiReplyText = data.responseText || data.reply || data.text || data.message || (data.error ? `Error: ${data.error}` : "Maaf, terjadi kendala saat memproses permintaan.");
       
+      // Auto extract website code if AI generated HTML or user requested a website
+      const codeMatch = aiReplyText.match(/```html\s*\n?([\s\S]*?)```/i) || aiReplyText.match(/```(xml|jsx|tsx|vue|svelte)\s*\n?([\s\S]*?)```/i);
+      const isWebPrompt = userMsg.text.toLowerCase().includes('web') || 
+                         userMsg.text.toLowerCase().includes('website') || 
+                         userMsg.text.toLowerCase().includes('landing page') ||
+                         userMsg.text.toLowerCase().includes('tampilan');
+
+      if (codeMatch || (isWebPrompt && aiReplyText.length > 50)) {
+        const rawCode = codeMatch ? codeMatch[1].trim() : aiReplyText.trim();
+        let fullWebHtml = rawCode;
+        if (!fullWebHtml.toLowerCase().includes('<!doctype html') && !fullWebHtml.toLowerCase().includes('<html')) {
+          fullWebHtml = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website - ${userMsg.text.slice(0, 25)}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #09090b; color: #f4f4f5; margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+${rawCode}
+</body>
+</html>`;
+        }
+
+        const newWebProject: WebsiteProject = {
+          id: 'web_' + Date.now(),
+          title: userMsg.text.slice(0, 30) || 'Website Buatan Bara AI',
+          code: fullWebHtml,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        setWebsites(prev => [newWebProject, ...prev]);
+        setActiveWebsiteId(newWebProject.id);
+      }
+
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
@@ -939,27 +1175,62 @@ export function App() {
                         </button>
                       </div>
                       
-                      <div className="p-4 flex flex-col gap-3">
+                      <div className="p-4 flex flex-col gap-2.5">
+                        {/* 1. Tombol Website Saya (DI ATAS BARA AI) */}
                         <button 
                           onClick={() => {
-                            setChatMode('room');
+                            setIsWebsiteListOpen(true);
                             setIsTopMenuOpen(false);
                           }}
-                          className={`w-full text-left px-4 py-3 rounded-xl hover:bg-primary-900/30 border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${chatMode === 'room' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white'}`}
+                          className="w-full text-left px-4 py-3 rounded-xl bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 border border-purple-500/40 text-purple-200 flex items-center justify-between transition-all cursor-pointer font-medium shadow-md group"
                         >
-                          <Users className="w-5 h-5 text-primary-400" />
-                          Room Chat
+                          <div className="flex items-center gap-3">
+                            <Globe className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
+                            <span className="font-semibold text-sm">Website Saya</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono">
+                            {websites.length} Web
+                          </span>
                         </button>
 
+                        {/* 2. Tombol Bara AI */}
                         <button 
                           onClick={() => {
                             setChatMode('ai');
                             setIsTopMenuOpen(false);
                           }}
-                          className={`w-full text-left px-4 py-3 rounded-xl hover:bg-primary-900/30 border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${chatMode === 'ai' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white'}`}
+                          className={`w-full text-left px-4 py-3 rounded-xl border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${
+                            chatMode === 'ai' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white hover:bg-primary-900/20'
+                          }`}
                         >
-                          <img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-5 h-5 rounded-md object-cover" />
-                          Bara AI
+                          <img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-5 h-5 rounded-md object-cover shrink-0" />
+                          <span className="text-sm font-semibold">Bara AI</span>
+                        </button>
+
+                        {/* 3. Ikon Gear / Tombol Pengaturan Bara AI (DI BAWAH BARA AI) */}
+                        <button 
+                          onClick={() => {
+                            setIsSettingsMenuOpen(true);
+                            setIsTopMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 rounded-xl bg-[#141419] hover:bg-primary-900/30 border border-primary-500/20 text-gray-300 hover:text-white flex items-center gap-3 transition-colors cursor-pointer text-xs font-medium ml-2 w-[calc(100%-0.5rem)]"
+                        >
+                          <Settings className="w-4 h-4 text-primary-400 shrink-0" />
+                          <span>Pengaturan Bara AI</span>
+                        </button>
+
+                        {/* 4. Tombol Room Chat */}
+                        <button 
+                          onClick={() => {
+                            setChatMode('room');
+                            setIsTopMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-xl border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${
+                            chatMode === 'room' ? 'bg-primary-900/40 text-primary-300' : 'bg-[#1A1A24] text-white hover:bg-primary-900/20'
+                          }`}
+                        >
+                          <Users className="w-5 h-5 text-primary-400 shrink-0" />
+                          <span className="text-sm font-semibold">Room Chat</span>
                         </button>
                         
                         {chatMode === 'ai' && (
@@ -1070,15 +1341,17 @@ export function App() {
                   <button 
                     onClick={() => setIsRoomSettingsOpen(true)}
                     className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
+                    title="Pengaturan Room Chat"
                   >
                     <Settings className="w-5 h-5" />
                   </button>
                 ) : (
                   <button 
-                    onClick={() => setIsSettingsMenuOpen(true)}
-                    className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
+                    onClick={() => setIsWebsitePreviewOpen(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-2xl border border-purple-500/40 text-purple-400 hover:bg-purple-900/20 transition-colors cursor-pointer relative group"
+                    title="Preview Website Saya"
                   >
-                    <Settings className="w-5 h-5" />
+                    <Eye className="w-5 h-5" />
                   </button>
                 )}
               </div>
@@ -1133,7 +1406,7 @@ export function App() {
                           </div>
                           
                           {isAi && (
-                            <div className="mt-3 pt-3 flex items-center gap-2">
+                            <div className="mt-3 pt-3 flex flex-wrap items-center gap-2 border-t border-white/5">
                               <button 
                                 onClick={() => handleCopyAiMessage(msg.id, msg.text)}
                                 className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
@@ -1155,6 +1428,16 @@ export function App() {
                               >
                                 <ThumbsDown className="w-4 h-4" />
                               </button>
+
+                              {(msg.text.includes('```html') || msg.text.includes('```') || msg.text.toLowerCase().includes('website')) && (
+                                <button
+                                  onClick={() => setIsWebsitePreviewOpen(true)}
+                                  className="ml-auto px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-purple-400" />
+                                  <span>Preview Website Saya</span>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1948,6 +2231,325 @@ export function App() {
                   <button onClick={handleLogout} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
                     Oke
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Website Preview Overlay Modal */}
+          {isWebsitePreviewOpen && (
+            <div className={`fixed inset-0 z-[180] bg-black/90 backdrop-blur-md flex flex-col ${isWebsiteFullscreen ? 'p-0' : 'p-2 sm:p-4'} animate-fade-in`}>
+              {/* Top Header of Preview */}
+              <div className="flex items-center justify-between p-3 bg-[#121217] border border-purple-500/30 rounded-t-2xl shrink-0">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <Globe className="w-5 h-5 text-purple-400 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold font-orbitron text-purple-300 truncate">
+                      Preview: {activeWebsite?.title || 'Website Bara AI'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      {websites.length} website tersimpan
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select 
+                    value={activeWebsiteId} 
+                    onChange={(e) => setActiveWebsiteId(e.target.value)}
+                    className="bg-[#1a1a24] border border-purple-500/30 text-xs text-gray-200 rounded-lg px-2 py-1 focus:outline-none max-w-[140px] sm:max-w-[200px] truncate cursor-pointer"
+                  >
+                    {websites.map(w => (
+                      <option key={w.id} value={w.id}>
+                        {w.title}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button 
+                    onClick={() => setIsWebsitePreviewOpen(false)}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main iFrame Container */}
+              <div className="flex-1 w-full bg-black border-x border-b border-purple-500/30 rounded-b-2xl overflow-hidden relative">
+                <iframe
+                  title="Website Live Preview"
+                  srcDoc={prepareIframeSrcDoc(activeWebsiteCode)}
+                  className="w-full h-full border-0 bg-white"
+                  sandbox="allow-scripts allow-same-origin allow-modals allow-forms"
+                />
+
+                {websiteCopiedToast && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xl flex items-center gap-2 z-[250] animate-bounce">
+                    <CheckIcon className="w-4 h-4" />
+                    <span>Kode Website Berhasil Disalin!</span>
+                  </div>
+                )}
+
+                {/* Stacked 3-Dot Floating Menu in Bottom Right Corner */}
+                <div className="absolute bottom-6 right-6 z-[220] flex flex-col items-end">
+                  {is3DotMenuOpen && (
+                    <div className="mb-3 w-48 bg-[#141416]/95 backdrop-blur-xl border border-purple-500/40 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-fade-in z-[230]">
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          setEditingWebsiteCodeText(activeWebsiteCode);
+                          setIsEditingWebsiteCode(true);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
+                      >
+                        <Edit2 className="w-4 h-4 text-purple-400" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          navigator.clipboard.writeText(activeWebsiteCode);
+                          setWebsiteCopiedToast(true);
+                          setTimeout(() => setWebsiteCopiedToast(false), 2500);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
+                      >
+                        <Copy className="w-4 h-4 text-emerald-400" />
+                        <span>Salin</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          const blob = new Blob([activeWebsiteCode], { type: 'text/html' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${activeWebsite?.title || 'website'}.html`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
+                      >
+                        <Download className="w-4 h-4 text-blue-400" />
+                        <span>Download</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          setIsWebsiteFullscreen(!isWebsiteFullscreen);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
+                      >
+                        {isWebsiteFullscreen ? (
+                          <>
+                            <Minimize2 className="w-4 h-4 text-purple-400" />
+                            <span>Tutup Layar Penuh</span>
+                          </>
+                        ) : (
+                          <>
+                            <Maximize2 className="w-4 h-4 text-purple-400" />
+                            <span>Layar Penuh</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => setIs3DotMenuOpen(!is3DotMenuOpen)}
+                    className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-500 text-white shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 cursor-pointer border border-purple-400/50"
+                    title="Opsi Website (Edit, Salin, Download, Layar Penuh)"
+                  >
+                    <MoreVertical className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Website Code Modal */}
+          {isEditingWebsiteCode && (
+            <div className="fixed inset-0 z-[240] bg-black/80 backdrop-blur-md p-4 flex flex-col items-center justify-center animate-fade-in">
+              <div className="w-full max-w-4xl bg-[#0e0e12] border border-purple-500/40 rounded-2xl overflow-hidden flex flex-col h-[85vh] shadow-2xl">
+                <div className="flex items-center justify-between p-4 bg-[#14141a] border-b border-purple-500/30">
+                  <div className="flex items-center gap-2">
+                    <Edit2 className="w-5 h-5 text-purple-400" />
+                    <h3 className="font-bold text-sm text-white font-orbitron">
+                      Edit Kode Website: {activeWebsite?.title}
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setIsEditingWebsiteCode(false)}
+                    className="p-1 rounded-lg text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 p-3 bg-[#08080a] overflow-hidden flex flex-col">
+                  <textarea
+                    value={editingWebsiteCodeText}
+                    onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
+                    className="w-full h-full bg-transparent text-gray-200 font-mono text-xs p-3 focus:outline-none resize-none leading-relaxed border border-white/10 rounded-xl"
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="p-4 bg-[#14141a] border-t border-purple-500/30 flex justify-end gap-3">
+                  <button 
+                    onClick={() => setIsEditingWebsiteCode(false)}
+                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setWebsites(prev => prev.map(w => w.id === activeWebsiteId ? { ...w, code: editingWebsiteCodeText, updatedAt: Date.now() } : w));
+                      setIsEditingWebsiteCode(false);
+                    }}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow-lg transition-colors cursor-pointer"
+                  >
+                    Simpan & Update Website
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Website List Modal (Website Saya) */}
+          {isWebsiteListOpen && (
+            <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setIsWebsiteListOpen(false)}>
+              <div className="bg-[#101015] border border-purple-500/40 rounded-3xl w-full max-w-2xl overflow-hidden flex flex-col shadow-2xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+                <div className="p-5 border-b border-purple-500/30 flex justify-between items-center bg-[#14141c]">
+                  <div className="flex items-center gap-3">
+                    <Globe className="w-6 h-6 text-purple-400" />
+                    <div>
+                      <h2 className="text-lg font-bold font-orbitron text-white">Website Saya</h2>
+                      <p className="text-xs text-gray-400 font-mono">Daftar website yang dibuat oleh Bara AI</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        const newWeb: WebsiteProject = {
+                          id: 'web_' + Date.now(),
+                          title: `Website Baru #${websites.length + 1}`,
+                          code: DEFAULT_WEBSITE_HTML,
+                          createdAt: Date.now(),
+                          updatedAt: Date.now(),
+                        };
+                        setWebsites(prev => [newWeb, ...prev]);
+                        setActiveWebsiteId(newWeb.id);
+                      }}
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Buat Website Baru</span>
+                    </button>
+
+                    <button onClick={() => setIsWebsiteListOpen(false)} className="p-1 rounded-lg text-gray-400 hover:text-white cursor-pointer">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 overflow-y-auto flex flex-col gap-3 flex-1">
+                  {websites.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 text-sm">Belum ada website yang dibuat.</div>
+                  ) : (
+                    websites.map(web => (
+                      <div 
+                        key={web.id}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                          activeWebsiteId === web.id 
+                            ? 'bg-purple-900/30 border-purple-500/60 shadow-lg' 
+                            : 'bg-[#16161f] border-white/10 hover:border-purple-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0 mt-0.5">
+                            <Globe className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-sm text-gray-100 truncate">{web.title}</h3>
+                            <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                              Diupdate: {new Date(web.updatedAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <button 
+                            onClick={() => {
+                              setActiveWebsiteId(web.id);
+                              setIsWebsiteListOpen(false);
+                              setIsWebsitePreviewOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Preview</span>
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              setActiveWebsiteId(web.id);
+                              setEditingWebsiteCodeText(web.code);
+                              setIsEditingWebsiteCode(true);
+                            }}
+                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
+                            title="Edit Kode"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(web.code);
+                              alert("Kode website disalin!");
+                            }}
+                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
+                            title="Salin Kode"
+                          >
+                            <Copy className="w-4 h-4 text-emerald-400" />
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              const blob = new Blob([web.code], { type: 'text/html' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${web.title}.html`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
+                            title="Download HTML"
+                          >
+                            <Download className="w-4 h-4 text-blue-400" />
+                          </button>
+
+                          {websites.length > 1 && (
+                            <button 
+                              onClick={() => {
+                                setWebsites(prev => prev.filter(w => w.id !== web.id));
+                              }}
+                              className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs cursor-pointer transition-colors"
+                              title="Hapus Website"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
