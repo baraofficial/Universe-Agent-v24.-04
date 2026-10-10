@@ -70,6 +70,7 @@ interface WebsiteProject {
   code: string;
   createdAt: number;
   updatedAt: number;
+  isFullStack?: boolean;
 }
 
 /** Struktur data untuk pesan chat antara User dan AI Agent */
@@ -111,7 +112,9 @@ interface SavedNote {
 // ============================================================================
 
 /** System Prompt Default sesuai dengan instruksi spesifikasi */
-const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI. Asisten AI pribadi yg cerdas dan proaktif. \nTugas: Bantu user menyelesaikan tugas. Gaya bahasa: Keren dan profesional. \nAturan: Jangan lakukan hal ilegal. Jika tidak bisa, jelaskan kenapa.\n`;
+const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI. Asisten AI pribadi yg cerdas, proaktif, dan Full-Stack Software Engineer handal.
+Tugas: Bantu user menyelesaikan tugas dan membuat website/aplikasi full stack. Saat diminta membuat website, kamu WAJIB selalu menghasilkan website FULL STACK (Frontend interaktif modern + Backend REST API / controller fungsional + Database CRUD persisten). Gaya bahasa: Keren dan profesional.
+Aturan: Jangan lakukan hal ilegal. Jika tidak bisa, jelaskan kenapa.`;
 
 /** Kunci penyimpanan lokal (localStorage) */
 const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
@@ -122,91 +125,476 @@ const STORAGE_KEY_NOTES = 'bara_ai_saved_notes';
 const STORAGE_KEY_USERNAME = 'bara_ai_username';
 const STORAGE_KEY_WEBSITES = 'bara_ai_created_websites';
 
-/** Default Template Website HTML untuk Bara AI Web Creator */
+/** Default Template Website Full Stack untuk Bara AI Web Creator */
 const DEFAULT_WEBSITE_HTML = `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bara AI Web Creator & Official Hub</title>
+  <title>Bara AI - Full Stack Hub & Task Engine</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #08080a; color: #f3f4f6; }
     .font-orbitron { font-family: 'Orbitron', sans-serif; }
-    .glass { background: rgba(20, 20, 28, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(139, 92, 246, 0.25); }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(18, 18, 26, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(139, 92, 246, 0.25); }
+    .glass-dark { background: rgba(10, 10, 14, 0.95); backdrop-filter: blur(14px); border: 1px solid rgba(139, 92, 246, 0.15); }
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between">
+<body class="min-h-screen flex flex-col justify-between selection:bg-purple-600 selection:text-white">
+
   <!-- Navbar -->
-  <nav class="sticky top-0 z-50 glass px-6 py-4 flex items-center justify-between shadow-xl">
+  <nav class="sticky top-0 z-50 glass px-6 py-4 flex items-center justify-between shadow-2xl">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center font-orbitron font-bold text-purple-400">
         BA
       </div>
-      <span class="font-orbitron font-bold text-xl tracking-wider text-white">BARA <span class="text-purple-400">AI</span></span>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-orbitron font-bold text-lg tracking-wider text-white">BARA <span class="text-purple-400">AI</span></span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">FULL STACK</span>
+        </div>
+        <p class="text-[10px] text-gray-400">Frontend UI • REST API Mock • Local DB Engine</p>
+      </div>
     </div>
-    <div class="hidden md:flex items-center gap-6 text-sm text-gray-300">
-      <a href="#fitur" class="hover:text-purple-400 transition-colors">Fitur</a>
-      <a href="#showcase" class="hover:text-purple-400 transition-colors">Showcase</a>
-      <a href="#kontak" class="hover:text-purple-400 transition-colors">Kontak</a>
+    <div class="flex items-center gap-4">
+      <div class="hidden sm:flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="api-status-badge">API: 200 OK | DB: Connected</span>
+      </div>
+      <button onclick="document.getElementById('crud-section').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-purple-600/30">
+        Mulai App
+      </button>
     </div>
-    <button onclick="alert('Bara AI Website Builder Siap Digunakan!')" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-purple-600/30">
-      Coba Bara AI
-    </button>
   </nav>
 
   <!-- Hero Section -->
-  <header class="max-w-5xl mx-auto px-6 py-16 text-center">
+  <header class="max-w-6xl mx-auto px-6 py-12 text-center">
     <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-purple-500/30 text-purple-300 text-xs font-semibold mb-6">
-      <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Website Builder Engine
+      <i class="fa-solid fa-layer-group text-purple-400"></i> Full Stack Web Application Generator
     </div>
-    <h1 class="text-4xl md:text-6xl font-extrabold font-orbitron tracking-tight text-white mb-6 leading-tight">
-      Buat Website Impian <br><span class="bg-gradient-to-r from-purple-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">Secara Instan Bersama Bara AI</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold font-orbitron tracking-tight text-white mb-4 leading-tight">
+      Sistem Web <span class="bg-gradient-to-r from-purple-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">Full Stack Otomatis</span>
     </h1>
-    <p class="text-gray-400 text-base md:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-      Ketik instruksi atau ide website kamu di chat room Bara AI, dan AI akan otomatis menghasilkan tampilan web modern, interaktif, serta siap dipublikasikan!
+    <p class="text-gray-400 text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
+      Dilengkapi Frontend interaktif, Mock REST API Controller dengan endpoint lengkap (GET, POST, PATCH, DELETE), serta penyimpanan database persisten.
     </p>
-    <div class="flex flex-wrap items-center justify-center gap-4">
-      <button onclick="document.getElementById('fitur').scrollIntoView({behavior:'smooth'})" class="px-7 py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-purple-600/25">
-        Eksplor Fitur <i class="fa-solid fa-arrow-right ml-2"></i>
-      </button>
+    
+    <!-- Quick Architecture Chips -->
+    <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono">
+      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-desktop text-purple-400 mr-1.5"></i>Frontend UI (Tailwind)</span>
+      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-server text-indigo-400 mr-1.5"></i>REST API Gateway</span>
+      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-database text-pink-400 mr-1.5"></i>Persistent DB Storage</span>
     </div>
   </header>
 
-  <!-- Features Grid -->
-  <section id="fitur" class="max-w-5xl mx-auto px-6 py-12">
-    <h2 class="text-2xl font-bold font-orbitron text-center text-white mb-10">Keunggulan Web Creator Bara AI</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+  <!-- Main Full Stack Interactive Workspace -->
+  <main id="crud-section" class="max-w-6xl mx-auto px-6 pb-16 flex-1 w-full flex flex-col gap-8">
+    
+    <!-- Stats Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="glass p-5 rounded-2xl flex items-center justify-between">
+        <div>
+          <p class="text-xs text-gray-400 font-mono">TOTAL DATA (DB)</p>
+          <h3 id="stat-total" class="text-2xl font-bold font-orbitron text-white mt-1">0</h3>
+        </div>
         <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-bolt"></i>
+          <i class="fa-solid fa-database"></i>
         </div>
-        <h3 class="font-bold text-lg text-white">Generasi Instan</h3>
-        <p class="text-gray-400 text-sm">Proses pembuatan website berbasis AI dalam hitungan detik dari instruksi bahasa Indonesia.</p>
       </div>
-      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
-        <div class="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-code"></i>
+      <div class="glass p-5 rounded-2xl flex items-center justify-between">
+        <div>
+          <p class="text-xs text-gray-400 font-mono">STATUS ACTIVE</p>
+          <h3 id="stat-active" class="text-2xl font-bold font-orbitron text-yellow-400 mt-1">0</h3>
         </div>
-        <h3 class="font-bold text-lg text-white">Edit & Salin Kode</h3>
-        <p class="text-gray-400 text-sm">Kamu dapat mengedit kode HTML/CSS secara langsung, menyalinnya ke clipboard, atau mengunduhnya.</p>
+        <div class="w-12 h-12 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-clock"></i>
+        </div>
       </div>
-      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
-        <div class="w-12 h-12 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-mobile-screen"></i>
+      <div class="glass p-5 rounded-2xl flex items-center justify-between">
+        <div>
+          <p class="text-xs text-gray-400 font-mono">TOTAL API CALLS</p>
+          <h3 id="stat-requests" class="text-2xl font-bold font-orbitron text-emerald-400 mt-1">0</h3>
         </div>
-        <h3 class="font-bold text-lg text-white">Responsif & Modern</h3>
-        <p class="text-gray-400 text-sm">Tampilan otomatis menyesuaikan dengan layar HP, tablet, maupun monitor desktop.</p>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-network-wired"></i>
+        </div>
       </div>
     </div>
-  </section>
+
+    <!-- 2 Column Workspace: Frontend CRUD & Backend API Console -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left Column: Frontend UI & Interactive CRUD (7 Cols) -->
+      <section class="lg:col-span-7 flex flex-col gap-6">
+        
+        <!-- Add Item Form (POST /api/items) -->
+        <div class="glass p-6 rounded-3xl shadow-xl">
+          <div class="flex items-center justify-between mb-4 border-b border-purple-500/20 pb-3">
+            <h2 class="text-base font-bold font-orbitron text-white flex items-center gap-2">
+              <i class="fa-solid fa-plus-circle text-purple-400"></i> Tambah Proyek / Tugas Baru
+            </h2>
+            <span class="text-[11px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded-lg border border-purple-500/30">POST /api/projects</span>
+          </div>
+
+          <form id="item-form" onsubmit="handleCreateItem(event)" class="flex flex-col gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1">Nama Proyek / Tugas</label>
+              <input 
+                id="input-title" 
+                type="text" 
+                required 
+                placeholder="Contoh: Buat sistem autentikasi pengguna..."
+                class="w-full bg-[#12121a] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1">Kategori</label>
+                <select id="input-category" class="w-full bg-[#12121a] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-purple-500">
+                  <option value="Frontend">Frontend UI</option>
+                  <option value="Backend">Backend API</option>
+                  <option value="Database">Database Schema</option>
+                  <option value="FullStack">Full Stack</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1">Prioritas</label>
+                <select id="input-priority" class="w-full bg-[#12121a] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-purple-500">
+                  <option value="Tinggi">Tinggi (High)</option>
+                  <option value="Sedang">Sedang (Medium)</option>
+                  <option value="Rendah">Rendah (Low)</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="mt-2 w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-purple-600/25 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-paper-plane"></i> Kirim ke Database (Execute POST)
+            </button>
+          </form>
+        </div>
+
+        <!-- Data List / Table (GET, PATCH, DELETE) -->
+        <div class="glass p-6 rounded-3xl shadow-xl flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-purple-500/20 pb-3">
+            <div>
+              <h2 class="text-base font-bold font-orbitron text-white">Daftar Proyek di Database</h2>
+              <p class="text-xs text-gray-400 font-mono">GET /api/projects</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="filterItems('all')" id="btn-filter-all" class="px-2.5 py-1 text-xs rounded-lg bg-purple-600 text-white font-semibold">Semua</button>
+              <button onclick="filterItems('pending')" id="btn-filter-pending" class="px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold">Aktif</button>
+              <button onclick="filterItems('completed')" id="btn-filter-completed" class="px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold">Selesai</button>
+            </div>
+          </div>
+
+          <!-- Items Container -->
+          <div id="items-container" class="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1">
+            <!-- Dynamic items rendered by JavaScript -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Backend API & Database Console Monitor (5 Cols) -->
+      <section class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Live API & Request Terminal -->
+        <div class="glass-dark p-5 rounded-3xl border border-purple-500/30 flex flex-col h-[460px] shadow-2xl">
+          <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-red-500"></span>
+              <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+              <span class="text-xs font-mono font-bold text-gray-300 ml-2">REST API Live Logs</span>
+            </div>
+            <button onclick="clearLogs()" class="text-[10px] text-gray-400 hover:text-white font-mono px-2 py-0.5 rounded bg-white/5">
+              Clear
+            </button>
+          </div>
+
+          <div id="logs-terminal" class="flex-1 overflow-y-auto font-mono-code text-[11px] flex flex-col gap-1.5 text-gray-300 pr-1">
+            <!-- Dynamic logs will be injected here -->
+          </div>
+
+          <div class="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 font-mono">
+            <span>Server: Mock REST Engine</span>
+            <button onclick="testPingApi()" class="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg border border-purple-500/30 text-[11px]">
+              <i class="fa-solid fa-bolt mr-1"></i> Ping API
+            </button>
+          </div>
+        </div>
+
+        <!-- Database Engine Inspector -->
+        <div class="glass p-5 rounded-3xl flex flex-col gap-3">
+          <h3 class="text-sm font-bold font-orbitron text-white flex items-center gap-2">
+            <i class="fa-solid fa-server text-indigo-400"></i> Database Inspector
+          </h3>
+          <p class="text-xs text-gray-400">
+            Database ini tersimpan secara lokal dan persisten di browser dengan skema relasional terstruktur.
+          </p>
+          <div class="flex items-center gap-2 pt-2">
+            <button onclick="resetDatabase()" class="flex-1 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 text-xs font-semibold rounded-xl transition-all">
+              <i class="fa-solid fa-rotate-left mr-1"></i> Reset Data Awal
+            </button>
+            <button onclick="exportDatabaseJson()" class="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-semibold rounded-xl transition-all">
+              <i class="fa-solid fa-download mr-1"></i> Export DB (.json)
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
 
   <!-- Footer -->
-  <footer class="glass mt-16 py-8 border-t border-purple-500/20 text-center text-gray-400 text-sm">
-    <p>© 2026 Bara Official & Bara AI Agent. All Rights Reserved.</p>
+  <footer class="glass mt-8 py-6 border-t border-purple-500/20 text-center text-gray-400 text-xs font-mono">
+    <p>© 2026 Bara AI - Full Stack Web Application Generator. Built with Frontend UI, REST API, & Persistent Database.</p>
   </footer>
+
+  <!-- FULL STACK BACKEND CONTROLLER & DATABASE LOGIC (JAVASCRIPT) -->
+  <script>
+    // -------------------------------------------------------------
+    // DATABASE STORAGE ENGINE
+    // -------------------------------------------------------------
+    const DB_KEY = 'bara_fullstack_projects_db';
+    let currentFilter = 'all';
+    let totalApiRequests = 0;
+
+    const initialSeedData = [
+      { id: 1, title: 'Inisialisasi Backend REST API & Routes', category: 'Backend', priority: 'Tinggi', completed: true, createdAt: '2026-10-10 10:00' },
+      { id: 2, title: 'Koneksi Persistent Database Storage', category: 'Database', priority: 'Tinggi', completed: true, createdAt: '2026-10-10 10:15' },
+      { id: 3, title: 'Rancang UI Dashboard dengan Tailwind CSS', category: 'Frontend', priority: 'Sedang', completed: false, createdAt: '2026-10-10 10:30' },
+      { id: 4, title: 'Integrasi Endpoints CRUD (Create, Read, Update, Delete)', category: 'FullStack', priority: 'Tinggi', completed: false, createdAt: '2026-10-10 10:45' }
+    ];
+
+    function getDB() {
+      try {
+        const raw = localStorage.getItem(DB_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      localStorage.setItem(DB_KEY, JSON.stringify(initialSeedData));
+      return initialSeedData;
+    }
+
+    function saveDB(data) {
+      localStorage.setItem(DB_KEY, JSON.stringify(data));
+    }
+
+    // -------------------------------------------------------------
+    // BACKEND REST API LOGS
+    // -------------------------------------------------------------
+    function appendApiLog(method, endpoint, statusCode, message) {
+      totalApiRequests++;
+      document.getElementById('stat-requests').innerText = totalApiRequests;
+
+      const terminal = document.getElementById('logs-terminal');
+      const time = new Date().toLocaleTimeString('id-ID');
+      const statusColor = statusCode >= 400 ? 'text-red-400' : (statusCode >= 201 ? 'text-purple-400' : 'text-emerald-400');
+      
+      const logEl = document.createElement('div');
+      logEl.className = 'py-1 border-b border-white/5 flex flex-col gap-0.5';
+      logEl.innerHTML = \`
+        <div class="flex items-center justify-between">
+          <span><strong class="\${statusColor}">[\${method}]</strong> <span class="text-gray-200">\${endpoint}</span></span>
+          <span class="text-[10px] text-gray-500">\${time}</span>
+        </div>
+        <div class="text-[10px] text-gray-400 flex items-center gap-2">
+          <span class="px-1 rounded bg-white/10 \${statusColor}">\${statusCode}</span>
+          <span>\${message}</span>
+        </div>
+      \`;
+      terminal.appendChild(logEl);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // -------------------------------------------------------------
+    // MOCK BACKEND CONTROLLERS (REST API)
+    // -------------------------------------------------------------
+    const api = {
+      // GET /api/projects
+      async getProjects() {
+        const items = getDB();
+        appendApiLog('GET', '/api/projects', 200, \`Fetch \${items.length} records sukses\`);
+        return { status: 200, data: items };
+      },
+
+      // POST /api/projects
+      async createProject(payload) {
+        if (!payload.title || !payload.title.trim()) {
+          appendApiLog('POST', '/api/projects', 400, 'Validasi gagal: Nama proyek wajib diisi');
+          return { status: 400, error: 'Title required' };
+        }
+        const items = getDB();
+        const newItem = {
+          id: Date.now(),
+          title: payload.title.trim(),
+          category: payload.category || 'FullStack',
+          priority: payload.priority || 'Sedang',
+          completed: false,
+          createdAt: new Date().toLocaleString('id-ID')
+        };
+        items.unshift(newItem);
+        saveDB(items);
+        appendApiLog('POST', '/api/projects', 201, \`Item id #\${newItem.id} berhasil ditambahkan\`);
+        return { status: 201, data: newItem };
+      },
+
+      // PATCH /api/projects/:id
+      async toggleStatus(id) {
+        const items = getDB();
+        const target = items.find(i => i.id == id);
+        if (!target) {
+          appendApiLog('PATCH', \`/api/projects/\${id}\`, 404, 'Item tidak ditemukan');
+          return { status: 404, error: 'Not found' };
+        }
+        target.completed = !target.completed;
+        saveDB(items);
+        appendApiLog('PATCH', \`/api/projects/\${id}\`, 200, \`Status id #\${id} diubah ke: \${target.completed ? 'Selesai' : 'Aktif'}\`);
+        return { status: 200, data: target };
+      },
+
+      // DELETE /api/projects/:id
+      async deleteProject(id) {
+        let items = getDB();
+        const target = items.find(i => i.id == id);
+        if (!target) {
+          appendApiLog('DELETE', \`/api/projects/\${id}\`, 404, 'Item tidak ditemukan');
+          return { status: 404, error: 'Not found' };
+        }
+        items = items.filter(i => i.id != id);
+        saveDB(items);
+        appendApiLog('DELETE', \`/api/projects/\${id}\`, 200, \`Item id #\${id} dihapus dari database\`);
+        return { status: 200, success: true };
+      }
+    };
+
+    // -------------------------------------------------------------
+    // FRONTEND UI RENDERING & EVENT HANDLERS
+    // -------------------------------------------------------------
+    async function renderItems() {
+      const res = await api.getProjects();
+      let items = res.data;
+
+      // Update counters
+      document.getElementById('stat-total').innerText = items.length;
+      document.getElementById('stat-active').innerText = items.filter(i => !i.completed).length;
+
+      if (currentFilter === 'pending') {
+        items = items.filter(i => !i.completed);
+      } else if (currentFilter === 'completed') {
+        items = items.filter(i => i.completed);
+      }
+
+      const container = document.getElementById('items-container');
+      if (items.length === 0) {
+        container.innerHTML = '<div class="py-8 text-center text-gray-500 text-xs italic">Tidak ada proyek dalam kategori ini.</div>';
+        return;
+      }
+
+      container.innerHTML = items.map(item => \`
+        <div class="p-3.5 rounded-2xl glass flex items-center justify-between gap-3 transition-all hover:border-purple-500/50">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <button onclick="handleToggleItem(\${item.id})" class="w-6 h-6 rounded-lg border flex items-center justify-center transition-colors cursor-pointer \${
+              item.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-white/20 text-transparent hover:border-purple-500'
+            }">
+              <i class="fa-solid fa-check text-xs"></i>
+            </button>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold truncate \${item.completed ? 'line-through text-gray-500' : 'text-gray-100'}">
+                \${item.title}
+              </p>
+              <div class="flex items-center gap-2 text-[10px] text-gray-400 font-mono mt-0.5">
+                <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10">\${item.category}</span>
+                <span class="text-purple-300">[\${item.priority}]</span>
+                <span class="text-gray-500">\${item.createdAt}</span>
+              </div>
+            </div>
+          </div>
+          <button onclick="handleDeleteItem(\${item.id})" class="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer" title="Hapus Proyek">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </button>
+        </div>
+      \`).join('');
+    }
+
+    async function handleCreateItem(e) {
+      e.preventDefault();
+      const titleInput = document.getElementById('input-title');
+      const catInput = document.getElementById('input-category');
+      const prioInput = document.getElementById('input-priority');
+
+      const payload = {
+        title: titleInput.value,
+        category: catInput.value,
+        priority: prioInput.value
+      };
+
+      const res = await api.createProject(payload);
+      if (res.status === 201) {
+        titleInput.value = '';
+        renderItems();
+      }
+    }
+
+    async function handleToggleItem(id) {
+      await api.toggleStatus(id);
+      renderItems();
+    }
+
+    async function handleDeleteItem(id) {
+      await api.deleteProject(id);
+      renderItems();
+    }
+
+    function filterItems(type) {
+      currentFilter = type;
+      ['all', 'pending', 'completed'].forEach(t => {
+        const btn = document.getElementById('btn-filter-' + t);
+        if (t === type) {
+          btn.className = 'px-2.5 py-1 text-xs rounded-lg bg-purple-600 text-white font-semibold';
+        } else {
+          btn.className = 'px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold';
+        }
+      });
+      renderItems();
+    }
+
+    function testPingApi() {
+      appendApiLog('GET', '/api/healthcheck', 200, 'Server Mock API aktif & merespons dalam 12ms');
+    }
+
+    function clearLogs() {
+      document.getElementById('logs-terminal').innerHTML = '';
+    }
+
+    function resetDatabase() {
+      localStorage.setItem(DB_KEY, JSON.stringify(initialSeedData));
+      appendApiLog('POST', '/api/database/seed', 200, 'Database berhasil di-reset ke data bawaan');
+      renderItems();
+    }
+
+    function exportDatabaseJson() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getDB(), null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "bara_fullstack_database.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      appendApiLog('GET', '/api/database/export', 200, 'Export JSON file downloaded');
+    }
+
+    // Initial boot
+    window.addEventListener('DOMContentLoaded', () => {
+      appendApiLog('INIT', '/api/boot', 200, 'Full Stack Application Engine Started');
+      renderItems();
+    });
+  </script>
 </body>
 </html>`;
 
@@ -497,10 +885,11 @@ export function App() {
     } catch (e) {}
     return [{
       id: 'default_website_1',
-      title: 'Bara AI Official Hub & Landing Page',
+      title: 'Bara AI Full Stack Hub & Task Engine',
       code: DEFAULT_WEBSITE_HTML,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      isFullStack: true
     }];
   });
 
@@ -918,10 +1307,11 @@ ${rawCode}
 
         const newWebProject: WebsiteProject = {
           id: 'web_' + Date.now(),
-          title: userMsg.text.slice(0, 30) || 'Website Buatan Bara AI',
+          title: userMsg.text.slice(0, 30) || 'Full Stack App Buatan Bara AI',
           code: fullWebHtml,
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          isFullStack: true,
         };
 
         setWebsites(prev => [newWebProject, ...prev]);
@@ -1429,13 +1819,13 @@ ${rawCode}
                                 <ThumbsDown className="w-4 h-4" />
                               </button>
 
-                              {(msg.text.includes('```html') || msg.text.includes('```') || msg.text.toLowerCase().includes('website')) && (
+                              {(msg.text.includes('```html') || msg.text.includes('```') || msg.text.toLowerCase().includes('website') || msg.text.toLowerCase().includes('web') || msg.text.toLowerCase().includes('aplikasi')) && (
                                 <button
                                   onClick={() => setIsWebsitePreviewOpen(true)}
-                                  className="ml-auto px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                                  className="ml-auto px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/40 to-indigo-600/40 hover:from-purple-600/60 hover:to-indigo-600/60 border border-purple-500/50 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-purple-900/30 group"
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-purple-400" />
-                                  <span>Preview Website Saya</span>
+                                  <Zap className="w-3.5 h-3.5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                                  <span>⚡ Buka Full Stack Web App</span>
                                 </button>
                               )}
                             </div>
@@ -2244,11 +2634,16 @@ ${rawCode}
                 <div className="flex items-center gap-3 overflow-hidden">
                   <Globe className="w-5 h-5 text-purple-400 shrink-0" />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold font-orbitron text-purple-300 truncate">
-                      Preview: {activeWebsite?.title || 'Website Bara AI'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold font-orbitron text-purple-300 truncate">
+                        Preview: {activeWebsite?.title || 'Website Bara AI'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 flex items-center gap-1 shrink-0">
+                        <Zap className="w-3 h-3 text-yellow-400" /> Full Stack App
+                      </span>
+                    </div>
                     <span className="text-[10px] text-gray-400 font-mono">
-                      {websites.length} website tersimpan
+                      {websites.length} website tersimpan • Frontend + REST API + DB
                     </span>
                   </div>
                 </div>
@@ -2476,7 +2871,12 @@ ${rawCode}
                             <Globe className="w-5 h-5" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-sm text-gray-100 truncate">{web.title}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-sm text-gray-100 truncate">{web.title}</h3>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 flex items-center gap-0.5 shrink-0">
+                                <Zap className="w-2.5 h-2.5 text-yellow-400" /> Full Stack
+                              </span>
+                            </div>
                             <p className="text-[11px] text-gray-500 font-mono mt-0.5">
                               Diupdate: {new Date(web.updatedAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
