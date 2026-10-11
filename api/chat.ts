@@ -18,23 +18,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const key = process.env.GEMINI_API_KEY;
+    const key = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (!key) {
       return res.status(200).json({
-        responseText: "Maaf, API Key Gemini belum dikonfigurasi di Vercel. Silakan tambahkan GEMINI_API_KEY di Vercel Project Settings > Environment Variables.",
+        responseText: "Maaf, API Key Gemini belum dikonfigurasi. Silakan tambahkan GEMINI_API_KEY di panel Settings > Secrets.",
         toolUsed: "Error",
         status: "Ditolak (No API Key)"
       });
     }
 
     if (!ai) {
-      ai = new GoogleGenAI({ apiKey: key });
+      ai = new GoogleGenAI({ 
+        apiKey: key,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' }
+        }
+      });
     }
 
     const { prompt, message, history, systemPrompt, file } = req.body || {};
     const userPrompt = (prompt || message || "").trim();
     if (!userPrompt && !file) {
-      return res.status(400).json({ responseText: "Prompt tidak boleh kosong.", toolUsed: "Error", status: "Gagal" });
+      return res.status(200).json({ responseText: "Prompt tidak boleh kosong.", toolUsed: "Error", status: "Gagal" });
     }
 
     let chatContext = "";
@@ -76,18 +81,22 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
     let response: any = null;
     let lastError: any = null;
 
+    const inlineData = (file && file.dataUrl && typeof file.dataUrl === 'string' && file.dataUrl.includes(','))
+      ? { data: file.dataUrl.split(',')[1], mimeType: file.mimeType || 'image/jpeg' }
+      : null;
+
     for (const modelName of candidateModels) {
-      let retries = 2;
-      let delay = 500;
+      let retries = 1;
+      let delay = 600;
       let success = false;
 
-      while (retries > 0) {
+      while (retries >= 0) {
         try {
           response = await ai.models.generateContent({
             model: modelName,
-            contents: file ? [
+            contents: inlineData ? [
               { text: promptWithContext },
-              { inlineData: { data: file.dataUrl.split(',')[1], mimeType: file.mimeType } }
+              { inlineData }
             ] : promptWithContext,
             config: {
               systemInstruction: finalSystemInstruction,
@@ -116,13 +125,11 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
           break;
         } catch (err: any) {
           lastError = err;
-          const isBusy = err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("high demand");
-          if (isBusy) {
+          const isBusy = err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("high demand") || err?.message?.includes("RESOURCE_EXHAUSTED");
+          if (isBusy && retries > 0) {
             retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, delay));
-              delay *= 2;
-            }
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 2;
           } else {
             break;
           }
@@ -138,8 +145,13 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
 
     let output: any = {};
     try {
-      const outputStr = response?.text || "{}";
-      output = JSON.parse(outputStr);
+      const outputStr = (response?.text || "").trim();
+      const cleaned = outputStr
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+      output = JSON.parse(cleaned);
     } catch (parseErr) {
       output = {
         responseText: response?.text || "Selesai merespons.",
@@ -149,9 +161,9 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
     }
     return res.status(200).json(output);
   } catch (error: any) {
-    console.error("Vercel Serverless Gemini Error:", error);
+    console.error("Serverless Gemini Error:", error);
     return res.status(200).json({
-      responseText: `Waduh, terjadi error saat menghubungi Gemini di Vercel: ${error?.message || String(error)}`,
+      responseText: `Waduh, terjadi error saat menghubungi Gemini: ${error?.message || String(error)}`,
       toolUsed: "Error",
       status: "Gagal"
     });

@@ -1273,7 +1273,28 @@ export function App() {
         })
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.warn("Respon dari server BARA AI bukan format JSON valid:", rawText);
+        const cleanText = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!res.ok || cleanText.toLowerCase().includes("an error") || cleanText.toLowerCase().includes("error")) {
+          data = {
+            responseText: `Server BARA AI mengembalikan respon (${res.status || '502'}). ${cleanText ? `Pesan: "${cleanText.slice(0, 200)}"` : ''}\n\nServer sedang sibuk atau sedang memuat ulang. Silakan coba kirim kembali pesan Anda beberapa saat lagi.`,
+            toolUsed: "Error",
+            status: "Gagal (Non-JSON)"
+          };
+        } else {
+          data = {
+            responseText: cleanText || "Selesai memproses.",
+            toolUsed: "Umum",
+            status: "Selesai"
+          };
+        }
+      }
+
       const aiReplyText = data.responseText || data.reply || data.text || data.message || (data.error ? `Error: ${data.error}` : "Maaf, terjadi kendala saat memproses permintaan.");
       
       // Auto extract website code if AI generated HTML or user requested a website
@@ -1282,8 +1303,9 @@ export function App() {
                          userMsg.text.toLowerCase().includes('website') || 
                          userMsg.text.toLowerCase().includes('landing page') ||
                          userMsg.text.toLowerCase().includes('tampilan');
+      const hasRealHtml = /<(!doctype|html|head|body|div|section|nav|header|main|h1|h2|p|button|span)[\s>]/i.test(aiReplyText);
 
-      if (codeMatch || (isWebPrompt && aiReplyText.length > 50)) {
+      if ((codeMatch || (isWebPrompt && hasRealHtml)) && !aiReplyText.startsWith('Error:') && !aiReplyText.startsWith('Maaf,') && !aiReplyText.startsWith('Server BARA AI mengembalikan')) {
         const rawCode = codeMatch ? codeMatch[1].trim() : aiReplyText.trim();
         let fullWebHtml = rawCode;
         if (!fullWebHtml.toLowerCase().includes('<!doctype html') && !fullWebHtml.toLowerCase().includes('<html')) {

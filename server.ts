@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
@@ -6,6 +7,14 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { runGitAdd, runGitCommit, runGitPush } from "./src/tools/git.js";
 import { commitFileToGithub } from "./src/tools/github.js";
+
+// Global process error handlers to ensure the server process never crashes unexpectedly
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception in server process:", err);
+});
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
 
 async function startServer() {
   const app = express();
@@ -50,15 +59,16 @@ async function startServer() {
 
   app.post("/api/chat", async (req, res) => {
     try {
+      const key = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+      if (!key) {
+        return res.status(200).json({
+          responseText: "Maaf, API Key Gemini belum disetting di environment variables. Silakan tambahkan GEMINI_API_KEY di Settings > Secrets.",
+          toolUsed: "Error",
+          status: "Ditolak (No API Key)"
+        });
+      }
+
       if (!ai) {
-        const key = process.env.GEMINI_API_KEY;
-        if (!key) {
-          return res.json({
-            responseText: "Maaf, API Key Gemini belum disetting di environment variables. Silakan tambahkan GEMINI_API_KEY di Settings > Secrets.",
-            toolUsed: "Error",
-            status: "Ditolak (No API Key)"
-          });
-        }
         ai = new GoogleGenAI({
           apiKey: key,
           httpOptions: {
@@ -70,7 +80,7 @@ async function startServer() {
       const { prompt, message, history, systemPrompt, file } = req.body || {};
       const userPrompt = (prompt || message || "").trim();
       if (!userPrompt && !file) {
-        return res.json({
+        return res.status(200).json({
           responseText: "Silakan masukkan pesan.",
           toolUsed: "Error",
           status: "Gagal"
@@ -86,14 +96,14 @@ async function startServer() {
             "# TEST AGENT\n\nIni adalah file test buatan Bara AI! Berhasil di-upload via Octokit API.", 
             "test: create TEST_AGENT.md via agent"
           );
-          return res.json({
+          return res.status(200).json({
             responseText: `Berhasil! File TEST_AGENT.md udah di-commit ke GitHub via Octokit.\n\n[Cek File Commit Disini](${commitUrl})`,
             toolUsed: "Deploy Tools",
             status: "Selesai"
           });
         } catch (e: any) {
           console.error("Test agent error:", e);
-          return res.json({
+          return res.status(200).json({
             responseText: `Gagal test agent: ${e.message}`,
             toolUsed: "Error",
             status: "Gagal"
@@ -101,7 +111,6 @@ async function startServer() {
         }
       }
 
-      
       // Transform history for better context
       let chatContext = "";
       if (history && history.length > 0) {
@@ -131,7 +140,7 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
 4. Jika user meminta untuk melakukan update ke github, commit, atau push kode, kamu WAJIB mengisi property 'gitAction' di JSON dengan 'commitMessage' yang mendeskripsikan perubahan tersebut.
 5. Selalu patuhi identitas, gaya bahasa, aturan, dan larangan yang ditetapkan dalam <system_prompt_dari_user> di atas.`;
 
-  const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${userPrompt}`;
+      const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${userPrompt}`;
 
       const candidateModels = [
         "gemini-3.8-flash",
@@ -142,18 +151,22 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
       let response: any = null;
       let lastError: any = null;
 
+      const inlineData = (file && file.dataUrl && typeof file.dataUrl === 'string' && file.dataUrl.includes(','))
+        ? { data: file.dataUrl.split(',')[1], mimeType: file.mimeType || 'image/jpeg' }
+        : null;
+
       for (const modelName of candidateModels) {
-        let retries = 2;
-        let delay = 500;
+        let retries = 1;
+        let delay = 600;
         let success = false;
 
-        while (retries > 0) {
+        while (retries >= 0) {
           try {
             response = await ai.models.generateContent({
               model: modelName,
-              contents: file ? [
+              contents: inlineData ? [
                 { text: promptWithContext },
-                { inlineData: { data: file.dataUrl.split(",")[1], mimeType: file.mimeType } }
+                { inlineData }
               ] : promptWithContext,
               config: {
                 systemInstruction: finalSystemInstruction,
@@ -190,13 +203,11 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
             break;
           } catch (err: any) {
             lastError = err;
-            const isBusy = err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("high demand");
-            if (isBusy) {
+            const isBusy = err?.status === 503 || err?.message?.includes("503") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("high demand") || err?.message?.includes("RESOURCE_EXHAUSTED");
+            if (isBusy && retries > 0) {
               retries--;
-              if (retries > 0) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
-              }
+              await new Promise(resolve => setTimeout(resolve, delay));
+              delay *= 2;
             } else {
               break;
             }
@@ -210,8 +221,29 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
         throw lastError || new Error("Semua model Gemini sedang sibuk. Silakan coba beberapa saat lagi.");
       }
 
-      const outputStr = response?.text || "{}";
-      const output = JSON.parse(outputStr);
+      let output: any = {};
+      try {
+        const rawOutput = (response?.text || "").trim();
+        const cleanedStr = rawOutput
+          .replace(/^```json\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        output = JSON.parse(cleanedStr);
+      } catch (parseErr) {
+        console.warn("JSON parse fallback in server.ts:", parseErr);
+        output = {
+          responseText: response?.text || "Selesai memproses respon.",
+          toolUsed: "Umum",
+          status: "Selesai"
+        };
+      }
+
+      if (!output.responseText) {
+        output.responseText = response?.text || "Selesai memproses pesan.";
+      }
+      if (!output.toolUsed) output.toolUsed = "Umum";
+      if (!output.status) output.status = "Selesai";
       
       if (output.gitAction && output.gitAction.commitMessage) {
         try {
@@ -230,30 +262,31 @@ ATURAN WAJIB SISTEM KELUARAN (TIDAK BOLEH DILANGGAR):
           }
         } catch (e: any) {
           console.error("Git error:", e);
-          output.responseText += `
-
-Gagal nge-push: ${e.message}`;
+          output.responseText += `\n\nGagal nge-push: ${e.message}`;
           output.toolUsed = "Error";
           output.status = "Gagal";
         }
       }
       
-      res.json(output);
+      res.status(200).json(output);
     } catch (error: any) {
-      console.error("Gemini error:", error);
-      res.json({
-        responseText: `Waduh, ada error pas menghubungi Gemini: ${error.message}`,
+      console.error("Gemini error in /api/chat:", error);
+      res.status(200).json({
+        responseText: `Waduh, ada kendala saat memproses dengan Gemini: ${error?.message || 'Server error'}. Silakan coba kirim ulang perintah Anda.`,
         toolUsed: "Error",
         status: "Gagal"
       });
     }
   });
 
-  // Error handler untuk route API (menghindari return HTML)
-  app.use('/api', (err, req, res, next) => {
-    console.error('API Error:', err);
-    res.status(err.status || 500).json({
-      responseText: "Waduh, terjadi kesalahan sistem: " + (err.message || 'Unknown Error'),
+  // Global error handler untuk route server (selalu kirim JSON, hindari HTML/teks error mentah)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('Server unhandled error:', err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(200).json({
+      responseText: "Waduh, terjadi kesalahan sistem pada server: " + (err?.message || 'Unknown Server Error'),
       toolUsed: "Error",
       status: "Gagal"
     });
