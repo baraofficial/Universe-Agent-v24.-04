@@ -57,6 +57,36 @@ async function startServer() {
 
   let ai: GoogleGenAI | null = null;
 
+  app.post("/api/github/sync", async (req, res) => {
+    try {
+      const { path: filePath, content, message, owner, repo, branch, token } = req.body || {};
+      if (!content) {
+        return res.status(400).json({ success: false, error: "Konten kode website tidak boleh kosong." });
+      }
+
+      const targetPath = (filePath || "index.html").trim();
+      const commitMessage = (message || `Update ${targetPath} via Bara AI Website Preview`).trim();
+      const commitUrl = await commitFileToGithub(targetPath, content, commitMessage, {
+        owner,
+        repo,
+        branch,
+        token
+      });
+
+      return res.status(200).json({
+        success: true,
+        commitUrl,
+        message: `Berhasil sinkronisasi file '${targetPath}' ke GitHub!`
+      });
+    } catch (err: any) {
+      console.error("Error in /api/github/sync:", err);
+      return res.status(400).json({
+        success: false,
+        error: err.message || "Gagal melakukan sinkronisasi ke GitHub."
+      });
+    }
+  });
+
   app.post("/api/chat", async (req, res) => {
     try {
       const key = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;

@@ -3,16 +3,28 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export const commitFileToGithub = async (path: string, content: string, message: string) => {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new Error('GITHUB_TOKEN tidak ditemukan di env.');
+export interface GithubCommitOptions {
+  token?: string;
+  owner?: string;
+  repo?: string;
+  branch?: string;
+}
+
+export const commitFileToGithub = async (
+  path: string, 
+  content: string, 
+  message: string,
+  options?: GithubCommitOptions
+) => {
+  const token = options?.token?.trim() || process.env.GITHUB_TOKEN;
+  if (!token || token === 'your_github_token_here') {
+    throw new Error('Personal Access Token (PAT) GitHub diperlukan. Silakan masukkan token GitHub Anda.');
   }
 
   const octokit = new Octokit({ auth: token });
-  const owner = 'baraofficial';
-  const repo = 'Universe-Agent-v24.-04';
-  const branch = 'main';
+  const owner = options?.owner?.trim() || 'baraofficial';
+  const repo = options?.repo?.trim() || 'Universe-Agent-v24.-04';
+  const branch = options?.branch?.trim() || 'main';
 
   try {
     // Cek apakah file sudah ada untuk dapet SHA (wajib buat update)

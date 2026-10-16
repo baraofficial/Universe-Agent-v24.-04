@@ -57,6 +57,7 @@ import {
  Camera,
  Maximize2,
  Minimize2,
+ Search,
  Menu, Reply, X, ArrowDown, Rocket, Download, Edit2, Copy, ThumbsUp, ThumbsDown, FileCode, Eye, Check as CheckIcon, MoreVertical } from 'lucide-react';
 
 // ============================================================================
@@ -904,6 +905,75 @@ export function App() {
   const [is3DotMenuOpen, setIs3DotMenuOpen] = useState(false);
   const [editingWebsiteCodeText, setEditingWebsiteCodeText] = useState('');
   const [websiteCopiedToast, setWebsiteCopiedToast] = useState(false);
+  const [websiteCodeModalTab, setWebsiteCodeModalTab] = useState<'highlight' | 'edit' | 'split'>('highlight');
+
+  // Pop up Riwayat Pesan AI States
+  const [isChatHistoryModalOpen, setIsChatHistoryModalOpen] = useState(false);
+  const [chatHistorySearchQuery, setChatHistorySearchQuery] = useState('');
+  const [chatHistoryFilterTab, setChatHistoryFilterTab] = useState<'all' | 'starred'>('all');
+
+  // GitHub Sync States
+  const [isGithubSyncModalOpen, setIsGithubSyncModalOpen] = useState(false);
+  const [githubSyncPath, setGithubSyncPath] = useState('index.html');
+  const [githubSyncOwner, setGithubSyncOwner] = useState('baraofficial');
+  const [githubSyncRepo, setGithubSyncRepo] = useState('Universe-Agent-v24.-04');
+  const [githubSyncBranch, setGithubSyncBranch] = useState('main');
+  const [githubSyncMessage, setGithubSyncMessage] = useState('');
+  const [githubSyncToken, setGithubSyncToken] = useState(() => {
+    try {
+      return localStorage.getItem('bara_github_token') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [isGithubSyncing, setIsGithubSyncing] = useState(false);
+  const [githubSyncResult, setGithubSyncResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
+
+  const handleGithubSync = async () => {
+    if (!activeWebsiteCode) return;
+    setIsGithubSyncing(true);
+    setGithubSyncResult(null);
+    try {
+      if (githubSyncToken) {
+        try {
+          localStorage.setItem('bara_github_token', githubSyncToken);
+        } catch {}
+      }
+      const res = await fetch('/api/github/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: githubSyncPath.trim() || 'index.html',
+          content: activeWebsiteCode,
+          message: githubSyncMessage.trim() || `Update ${githubSyncPath.trim() || 'index.html'} via Bara AI Website Preview`,
+          owner: githubSyncOwner.trim() || 'baraofficial',
+          repo: githubSyncRepo.trim() || 'Universe-Agent-v24.-04',
+          branch: githubSyncBranch.trim() || 'main',
+          token: githubSyncToken.trim() || undefined
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setGithubSyncResult({
+          success: true,
+          message: data.message || 'Berhasil sinkronisasi kode website ke GitHub!',
+          url: data.commitUrl
+        });
+      } else {
+        setGithubSyncResult({
+          success: false,
+          message: data.error || 'Gagal melakukan sinkronisasi ke GitHub.'
+        });
+      }
+    } catch (err: any) {
+      setGithubSyncResult({
+        success: false,
+        message: err.message || 'Terjadi kesalahan jaringan atau server saat sinkronisasi GitHub.'
+      });
+    } finally {
+      setIsGithubSyncing(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -1644,91 +1714,37 @@ ${rawCode}
                           <Users className="w-5 h-5 text-primary-400 shrink-0" />
                           <span className="text-sm font-semibold">Room Chat</span>
                         </button>
-                        
-                        {chatMode === 'ai' && (
-                          <button 
-                            onClick={() => {
-                              handleNewChat();
-                              setIsTopMenuOpen(false);
-                            }}
-                            className="w-full mt-2 text-left px-4 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium shadow-lg"
-                          >
-                            <Plus className="w-5 h-5" />
-                            New Chat
-                          </button>
-                        )}
 
-                        {chatMode === 'ai' && (
-                          <div className="mt-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[50vh] pr-1 pb-4">
-                            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 px-1">Riwayat Chat Tersimpan</div>
-                            {chatSessions.length === 0 ? (
-                              <div className="text-xs text-gray-500 italic px-2 py-3 bg-[#141416]/50 rounded-xl text-center border border-white/5">
-                                Belum ada percakapan tersimpan
-                              </div>
-                            ) : (
-                              chatSessions.map(session => (
-                                <div 
-                                  key={session.id} 
-                                  onClick={() => handleSelectSession(session.id)} 
-                                  className={`group relative flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer border ${
-                                    currentSessionId === session.id 
-                                      ? 'bg-primary-900/40 border-primary-500/50 text-primary-300 shadow-md' 
-                                      : 'bg-[#141416]/80 hover:bg-white/5 border-white/5 hover:border-white/10 text-gray-300'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0 pr-1">
-                                    <MessageSquare className={`w-4 h-4 shrink-0 ${currentSessionId === session.id ? 'text-primary-400' : 'text-gray-500'}`} />
-                                    <span className="text-xs sm:text-sm truncate font-medium">
-                                      {session.title || 'Percakapan Baru'}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {session.isStarred && (
-                                      <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                                    )}
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteSession(session.id);
-                                      }}
-                                      className="p-1 rounded-md hover:bg-red-500/20 text-gray-400 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
-                                      title="Hapus Pesan Ini"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActionMenuSessionId(actionMenuSessionId === session.id ? null : session.id);
-                                      }}
-                                      className="p-1 rounded-md hover:bg-white/10 text-gray-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
-                                    >
-                                      <MoreVertical className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-
-                                  {actionMenuSessionId === session.id && (
-                                    <div className="absolute right-0 top-10 w-40 bg-[#141416] border border-primary-500/30 rounded-xl shadow-2xl py-1 z-[60] animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                      <button onClick={() => { handleToggleStarSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
-                                        <Star className={`w-3.5 h-3.5 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                                        {session.isStarred ? 'Hapus Bintang' : 'Bintangi'}
-                                      </button>
-                                      <button onClick={() => { handleShareSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-white/5 flex items-center gap-2 cursor-pointer transition-colors">
-                                        <Share2 className="w-3.5 h-3.5" />
-                                        Bagikan
-                                      </button>
-                                      <button onClick={() => { handleDeleteSession(session.id); setActionMenuSessionId(null); }} className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2 cursor-pointer transition-colors">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Hapus
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ))
-                            )}
+                        {/* 5. Tombol Riwayat Pesan (Tepat di Bawah Tombol Room Chat) */}
+                        <button 
+                          onClick={() => {
+                            setIsChatHistoryModalOpen(true);
+                            setIsTopMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 rounded-xl border border-primary-500/30 bg-[#1A1A24] hover:bg-primary-900/30 text-white flex items-center justify-between gap-3 transition-colors cursor-pointer font-medium shadow-md group"
+                          title="Buka Pop Up Semua Riwayat Pesan AI"
+                        >
+                          <div className="flex items-center gap-3">
+                            <History className="w-5 h-5 text-primary-400 group-hover:rotate-[-20deg] transition-transform shrink-0" />
+                            <span className="text-sm font-semibold">Riwayat Pesan</span>
                           </div>
-                        )}
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary-500/20 text-primary-300 font-mono border border-primary-500/30">
+                            {chatSessions.length}
+                          </span>
+                        </button>
+                        
+                        {/* Tombol New Chat */}
+                        <button 
+                          onClick={() => {
+                            handleNewChat();
+                            setChatMode('ai');
+                            setIsTopMenuOpen(false);
+                          }}
+                          className="w-full mt-1 text-left px-4 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white flex items-center gap-3 transition-colors cursor-pointer font-medium shadow-lg"
+                        >
+                          <Plus className="w-5 h-5" />
+                          <span className="text-sm font-semibold">New Chat</span>
+                        </button>
                       </div>
                       <div className="mt-auto p-4 text-center border-t border-primary-900/30">
                         <p className="text-xs text-gray-500 font-mono tracking-wider">
@@ -2671,6 +2687,19 @@ ${rawCode}
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      setGithubSyncMessage(`Update ${githubSyncPath} via Bara AI Website Preview`);
+                      setGithubSyncResult(null);
+                      setIsGithubSyncModalOpen(true);
+                    }}
+                    className="p-1.5 px-2.5 rounded-lg hover:bg-purple-900/40 text-purple-300 border border-purple-500/40 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
+                    title="GitHub Sync: Sinkronisasi website ke GitHub"
+                  >
+                    <Github className="w-4 h-4 text-purple-400" />
+                    <span className="hidden sm:inline">GitHub Sync</span>
+                  </button>
+
                   <select 
                     value={activeWebsiteId} 
                     onChange={(e) => setActiveWebsiteId(e.target.value)}
@@ -2711,17 +2740,31 @@ ${rawCode}
                 {/* Stacked 3-Dot Floating Menu in Bottom Right Corner */}
                 <div className="absolute bottom-6 right-6 z-[220] flex flex-col items-end">
                   {is3DotMenuOpen && (
-                    <div className="mb-3 w-48 bg-[#141416]/95 backdrop-blur-xl border border-purple-500/40 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-fade-in z-[230]">
+                    <div className="mb-3 w-52 bg-[#141416]/95 backdrop-blur-xl border border-purple-500/40 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 animate-fade-in z-[230]">
                       <button 
                         onClick={() => {
                           setIs3DotMenuOpen(false);
                           setEditingWebsiteCodeText(activeWebsiteCode);
+                          setWebsiteCodeModalTab('edit');
                           setIsEditingWebsiteCode(true);
                         }}
                         className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
                       >
                         <Edit2 className="w-4 h-4 text-purple-400" />
-                        <span>Edit</span>
+                        <span>Edit Kode</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          setEditingWebsiteCodeText(activeWebsiteCode);
+                          setWebsiteCodeModalTab('highlight');
+                          setIsEditingWebsiteCode(true);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
+                      >
+                        <Code className="w-4 h-4 text-cyan-400" />
+                        <span>Lihat Kode Berwarna (AI)</span>
                       </button>
 
                       <button 
@@ -2734,7 +2777,7 @@ ${rawCode}
                         className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
                       >
                         <Copy className="w-4 h-4 text-emerald-400" />
-                        <span>Salin</span>
+                        <span>Salin Kode</span>
                       </button>
 
                       <button 
@@ -2751,9 +2794,10 @@ ${rawCode}
                         className="flex items-center gap-3 px-3 py-2.5 text-xs text-gray-200 hover:text-white hover:bg-purple-900/40 rounded-xl transition-colors cursor-pointer font-medium"
                       >
                         <Download className="w-4 h-4 text-blue-400" />
-                        <span>Download</span>
+                        <span>Download HTML</span>
                       </button>
 
+                      {/* Tombol Layar Penuh */}
                       <button 
                         onClick={() => {
                           setIs3DotMenuOpen(false);
@@ -2773,13 +2817,28 @@ ${rawCode}
                           </>
                         )}
                       </button>
+
+                      {/* Tombol GitHub Sync TEPAT DI BAWAH TOMBOL LAYAR PENUH */}
+                      <button 
+                        onClick={() => {
+                          setIs3DotMenuOpen(false);
+                          setGithubSyncMessage(`Update ${githubSyncPath} via Bara AI Website Preview`);
+                          setGithubSyncResult(null);
+                          setIsGithubSyncModalOpen(true);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-purple-300 hover:text-white bg-purple-950/30 hover:bg-purple-900/50 border border-purple-500/30 rounded-xl transition-colors cursor-pointer font-medium"
+                        title="Sinkronisasi kode website ke GitHub repo"
+                      >
+                        <Github className="w-4 h-4 text-purple-400" />
+                        <span className="font-semibold">GitHub Sync</span>
+                      </button>
                     </div>
                   )}
 
                   <button 
                     onClick={() => setIs3DotMenuOpen(!is3DotMenuOpen)}
                     className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-500 text-white shadow-2xl flex items-center justify-center transition-all transform hover:scale-105 cursor-pointer border border-purple-400/50"
-                    title="Opsi Website (Edit, Salin, Download, Layar Penuh)"
+                    title="Opsi Website (Edit, Kode Berwarna, Salin, Download, Layar Penuh, GitHub Sync)"
                   >
                     <MoreVertical className="w-6 h-6" />
                   </button>
@@ -2788,50 +2847,654 @@ ${rawCode}
             </div>
           )}
 
-          {/* Edit Website Code Modal */}
+          {/* Edit & Highlight Website Code Modal (Sama dengan Warna Code AI) */}
           {isEditingWebsiteCode && (
-            <div className="fixed inset-0 z-[240] bg-black/80 backdrop-blur-md p-4 flex flex-col items-center justify-center animate-fade-in">
-              <div className="w-full max-w-4xl bg-[#0e0e12] border border-purple-500/40 rounded-2xl overflow-hidden flex flex-col h-[85vh] shadow-2xl">
-                <div className="flex items-center justify-between p-4 bg-[#14141a] border-b border-purple-500/30">
+            <div className="fixed inset-0 z-[240] bg-black/85 backdrop-blur-md p-2 sm:p-4 flex flex-col items-center justify-center animate-fade-in">
+              <div className="w-full max-w-5xl bg-[#0e0e14] border border-purple-500/40 rounded-3xl overflow-hidden flex flex-col h-[90vh] shadow-2xl">
+                {/* Header Modal */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#14141c] border-b border-purple-500/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-950/60 border border-purple-500/30 flex items-center justify-center">
+                      <Code className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-white font-orbitron truncate max-w-[260px] sm:max-w-md">
+                        Kode Website: {activeWebsite?.title}
+                      </h3>
+                      <p className="text-[11px] text-gray-400 font-mono">
+                        Pewarnaan syntax presisi identik dengan tampilan code AI Bara
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mode Tabs (Kode Berwarna AI, Edit, Split) */}
+                  <div className="flex items-center gap-1 bg-[#1a1a24] p-1 rounded-xl border border-purple-500/30">
+                    <button 
+                      onClick={() => setWebsiteCodeModalTab('highlight')}
+                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        websiteCodeModalTab === 'highlight' 
+                          ? 'bg-purple-600 text-white shadow' 
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5 text-purple-300" />
+                      <span>Kode Berwarna (AI Style)</span>
+                    </button>
+                    <button 
+                      onClick={() => setWebsiteCodeModalTab('edit')}
+                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        websiteCodeModalTab === 'edit' 
+                          ? 'bg-purple-600 text-white shadow' 
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <Edit2 className="w-3.5 h-3.5 text-purple-300" />
+                      <span>Edit Kode</span>
+                    </button>
+                    <button 
+                      onClick={() => setWebsiteCodeModalTab('split')}
+                      className={`hidden md:flex px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer items-center gap-1.5 ${
+                        websiteCodeModalTab === 'split' 
+                          ? 'bg-purple-600 text-white shadow' 
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <Cpu className="w-3.5 h-3.5 text-purple-300" />
+                      <span>Split Mode</span>
+                    </button>
+                  </div>
+
                   <div className="flex items-center gap-2">
-                    <Edit2 className="w-5 h-5 text-purple-400" />
-                    <h3 className="font-bold text-sm text-white font-orbitron">
-                      Edit Kode Website: {activeWebsite?.title}
-                    </h3>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(editingWebsiteCodeText || activeWebsiteCode);
+                        setWebsiteCopiedToast(true);
+                        setTimeout(() => setWebsiteCopiedToast(false), 2000);
+                      }}
+                      className="px-3 py-1.5 bg-[#1f1f2b] hover:bg-[#2b2b3c] text-gray-200 text-xs font-semibold rounded-xl border border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Salin Kode ke Clipboard"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Salin</span>
+                    </button>
+                    <button 
+                      onClick={() => setIsEditingWebsiteCode(false)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub Bar (Info Bahasa & Baris) */}
+                <div className="px-4 py-2 bg-[#0c0c10] border-b border-white/5 flex items-center justify-between text-[11px] text-gray-400 font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold uppercase">
+                      HTML / JS / CSS
+                    </span>
+                    <span>Pewarna Syntax: VS Code Dark Plus (Prism AI)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span>{editingWebsiteCodeText.split('\n').length} baris</span>
+                    <span>•</span>
+                    <span>{new Blob([editingWebsiteCodeText]).size} bytes</span>
+                  </div>
+                </div>
+
+                {/* Code Content Area */}
+                <div className="flex-1 bg-[#050507] overflow-hidden relative flex">
+                  {/* Mode 1: Kode Berwarna Identik AI */}
+                  {websiteCodeModalTab === 'highlight' && (
+                    <div className="flex-1 overflow-auto p-2 sm:p-3 custom-scrollbar">
+                      <SyntaxHighlighter
+                        language="html"
+                        style={vscDarkPlus}
+                        customStyle={{
+                          margin: 0,
+                          padding: '1rem',
+                          fontSize: '0.82rem',
+                          backgroundColor: '#050507',
+                          fontFamily: "'JetBrains Mono', monospace",
+                          lineHeight: '1.6',
+                          minHeight: '100%',
+                          borderRadius: '0.75rem'
+                        }}
+                        showLineNumbers={true}
+                        lineNumberStyle={{ minWidth: '2.5em', paddingRight: '1em', color: '#52525b', textAlign: 'right', userSelect: 'none' }}
+                        wrapLongLines={false}
+                      >
+                        {editingWebsiteCodeText || activeWebsiteCode}
+                      </SyntaxHighlighter>
+                    </div>
+                  )}
+
+                  {/* Mode 2: Editor Textarea */}
+                  {websiteCodeModalTab === 'edit' && (
+                    <div className="flex-1 p-3 overflow-hidden flex flex-col">
+                      <textarea
+                        value={editingWebsiteCodeText}
+                        onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
+                        className="w-full h-full bg-[#08080c] text-gray-200 font-mono text-xs sm:text-sm p-4 focus:outline-none resize-none leading-relaxed border border-purple-500/20 rounded-2xl focus:border-purple-500/60 transition-colors shadow-inner"
+                        spellCheck={false}
+                        placeholder="Masukkan kode HTML, CSS, dan JavaScript di sini..."
+                      />
+                    </div>
+                  )}
+
+                  {/* Mode 3: Split View */}
+                  {websiteCodeModalTab === 'split' && (
+                    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                      <div className="w-full md:w-1/2 p-3 border-b md:border-b-0 md:border-r border-purple-500/20 flex flex-col">
+                        <div className="text-[11px] font-mono text-gray-400 mb-1.5 flex items-center gap-1.5">
+                          <Edit2 className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Editor Langsung:</span>
+                        </div>
+                        <textarea
+                          value={editingWebsiteCodeText}
+                          onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
+                          className="w-full flex-1 bg-[#08080c] text-gray-200 font-mono text-xs p-3 focus:outline-none resize-none leading-relaxed border border-purple-500/20 rounded-xl focus:border-purple-500/60"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <div className="w-full md:w-1/2 p-3 overflow-auto flex flex-col custom-scrollbar">
+                        <div className="text-[11px] font-mono text-gray-400 mb-1.5 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Preview Berwarna (AI Style):</span>
+                        </div>
+                        <div className="flex-1 overflow-auto rounded-xl border border-purple-500/20 bg-[#050507]">
+                          <SyntaxHighlighter
+                            language="html"
+                            style={vscDarkPlus}
+                            customStyle={{
+                              margin: 0,
+                              padding: '0.8rem',
+                              fontSize: '0.78rem',
+                              backgroundColor: '#050507',
+                              fontFamily: "'JetBrains Mono', monospace",
+                              lineHeight: '1.5',
+                              minHeight: '100%'
+                            }}
+                            showLineNumbers={true}
+                            lineNumberStyle={{ minWidth: '2.2em', paddingRight: '0.8em', color: '#52525b', textAlign: 'right', userSelect: 'none' }}
+                            wrapLongLines={false}
+                          >
+                            {editingWebsiteCodeText || activeWebsiteCode}
+                          </SyntaxHighlighter>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Modal */}
+                <div className="p-4 bg-[#14141c] border-t border-purple-500/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        setWebsiteCodeModalTab(prev => prev === 'highlight' ? 'edit' : 'highlight');
+                      }}
+                      className="px-3 py-1.5 text-xs text-purple-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 rounded-xl transition-colors cursor-pointer"
+                    >
+                      {websiteCodeModalTab === 'highlight' ? 'Beralih ke Mode Edit' : 'Beralih ke Kode Berwarna (AI)'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setIsEditingWebsiteCode(false)}
+                      className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setWebsites(prev => prev.map(w => w.id === activeWebsiteId ? { ...w, code: editingWebsiteCodeText, updatedAt: Date.now() } : w));
+                        setIsEditingWebsiteCode(false);
+                      }}
+                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Simpan & Update Website</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GitHub Sync Modal */}
+          {isGithubSyncModalOpen && (
+            <div className="fixed inset-0 z-[250] bg-black/85 backdrop-blur-md p-3 sm:p-4 flex flex-col items-center justify-center animate-fade-in" onClick={() => setIsGithubSyncModalOpen(false)}>
+              <div className="w-full max-w-lg bg-[#0e0e14] border border-purple-500/40 rounded-3xl overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-4 sm:p-5 bg-[#14141c] border-b border-purple-500/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-950/60 border border-purple-500/30 flex items-center justify-center">
+                      <Github className="w-5 h-5 text-purple-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-white font-orbitron flex items-center gap-2">
+                        GitHub Sync
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">Octokit API</span>
+                      </h3>
+                      <p className="text-xs text-gray-400 font-mono truncate max-w-[260px] sm:max-w-xs">
+                        Website: {activeWebsite?.title}
+                      </p>
+                    </div>
                   </div>
                   <button 
-                    onClick={() => setIsEditingWebsiteCode(false)}
-                    className="p-1 rounded-lg text-gray-400 hover:text-white cursor-pointer"
+                    onClick={() => setIsGithubSyncModalOpen(false)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex-1 p-3 bg-[#08080a] overflow-hidden flex flex-col">
-                  <textarea
-                    value={editingWebsiteCodeText}
-                    onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
-                    className="w-full h-full bg-transparent text-gray-200 font-mono text-xs p-3 focus:outline-none resize-none leading-relaxed border border-white/10 rounded-xl"
-                    spellCheck={false}
-                  />
+                <div className="p-4 sm:p-5 flex flex-col gap-3.5 overflow-y-auto max-h-[70vh]">
+                  {/* Result notification */}
+                  {githubSyncResult && (
+                    <div className={`p-3.5 rounded-2xl border text-xs font-mono flex items-start gap-2.5 ${
+                      githubSyncResult.success 
+                        ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
+                        : 'bg-red-950/40 border-red-500/40 text-red-300'
+                    }`}>
+                      {githubSyncResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 overflow-hidden">
+                        <p className="font-medium">{githubSyncResult.message}</p>
+                        {githubSyncResult.url && (
+                          <a 
+                            href={githubSyncResult.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-emerald-400 underline hover:text-emerald-300 mt-1 font-bold"
+                          >
+                            Lihat Commit di GitHub ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-gray-300 font-mono">Owner / Username</label>
+                      <input 
+                        type="text"
+                        value={githubSyncOwner}
+                        onChange={(e) => setGithubSyncOwner(e.target.value)}
+                        placeholder="baraofficial"
+                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-gray-300 font-mono">Repository</label>
+                      <input 
+                        type="text"
+                        value={githubSyncRepo}
+                        onChange={(e) => setGithubSyncRepo(e.target.value)}
+                        placeholder="Universe-Agent-v24.-04"
+                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-gray-300 font-mono">Branch</label>
+                      <input 
+                        type="text"
+                        value={githubSyncBranch}
+                        onChange={(e) => setGithubSyncBranch(e.target.value)}
+                        placeholder="main"
+                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-gray-300 font-mono">File Path</label>
+                      <input 
+                        type="text"
+                        value={githubSyncPath}
+                        onChange={(e) => setGithubSyncPath(e.target.value)}
+                        placeholder="index.html"
+                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-gray-300 font-mono">Pesan Commit</label>
+                    <input 
+                      type="text"
+                      value={githubSyncMessage}
+                      onChange={(e) => setGithubSyncMessage(e.target.value)}
+                      placeholder={`Update ${githubSyncPath} via Bara AI Website Preview`}
+                      className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-gray-300 font-mono">Personal Access Token (PAT)</label>
+                      <span className="text-[10px] text-gray-500 font-mono">Otomatis / Opsional</span>
+                    </div>
+                    <input 
+                      type="password"
+                      value={githubSyncToken}
+                      onChange={(e) => setGithubSyncToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                      className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
+                    />
+                    <p className="text-[10px] text-gray-400 leading-relaxed font-mono">
+                      Token disimpan lokal. Jika token sudah di-set di file .env server, kolom ini bisa dikosongkan.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#121217] border border-white/5 flex items-center justify-between text-xs text-gray-400 font-mono">
+                    <span>File siap sync:</span>
+                    <span className="text-purple-300 font-bold">{githubSyncPath} ({activeWebsiteCode.split('\n').length} baris)</span>
+                  </div>
                 </div>
 
-                <div className="p-4 bg-[#14141a] border-t border-purple-500/30 flex justify-end gap-3">
+                <div className="p-4 bg-[#14141c] border-t border-purple-500/30 flex items-center justify-end gap-3">
                   <button 
-                    onClick={() => setIsEditingWebsiteCode(false)}
+                    onClick={() => setIsGithubSyncModalOpen(false)}
                     className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white cursor-pointer"
                   >
                     Batal
                   </button>
                   <button 
-                    onClick={() => {
-                      setWebsites(prev => prev.map(w => w.id === activeWebsiteId ? { ...w, code: editingWebsiteCodeText, updatedAt: Date.now() } : w));
-                      setIsEditingWebsiteCode(false);
-                    }}
-                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow-lg transition-colors cursor-pointer"
+                    onClick={handleGithubSync}
+                    disabled={isGithubSyncing}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                   >
-                    Simpan & Update Website
+                    {isGithubSyncing ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Menyinkronkan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Github className="w-4 h-4" />
+                        <span>Sync Sekarang ke GitHub</span>
+                      </>
+                    )}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pop Up Semua Riwayat Pesan AI Modal */}
+          {isChatHistoryModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-4 animate-fade-in" onClick={() => setIsChatHistoryModalOpen(false)}>
+              <div 
+                className="bg-[#0e0e14] border border-primary-500/40 rounded-3xl w-full max-w-2xl overflow-hidden flex flex-col shadow-2xl max-h-[85vh] animate-scale-in"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="p-4 sm:p-5 border-b border-primary-500/30 flex items-center justify-between bg-[#14141c]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-primary-950/60 border border-primary-500/30 flex items-center justify-center">
+                      <History className="w-5 h-5 text-primary-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-lg font-bold font-orbitron text-white">Riwayat Pesan AI</h2>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-300 font-mono border border-primary-500/30">
+                          {chatSessions.length} Percakapan
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 font-mono">Daftar semua riwayat pesan dan percakapan Bara AI</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        handleNewChat();
+                        setChatMode('ai');
+                        setIsChatHistoryModalOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="hidden sm:inline">Chat Baru</span>
+                    </button>
+                    <button 
+                      onClick={() => setIsChatHistoryModalOpen(false)} 
+                      className="p-1.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search & Filter Bar */}
+                <div className="p-3 sm:p-4 bg-[#111116] border-b border-white/5 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text"
+                      value={chatHistorySearchQuery}
+                      onChange={(e) => setChatHistorySearchQuery(e.target.value)}
+                      placeholder="Cari riwayat percakapan AI..."
+                      className="w-full bg-[#181820] border border-white/10 focus:border-primary-500/50 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 focus:outline-none font-mono"
+                    />
+                    {chatHistorySearchQuery && (
+                      <button 
+                        onClick={() => setChatHistorySearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-[#181820] p-1 rounded-xl border border-white/5 shrink-0">
+                    <button 
+                      onClick={() => setChatHistoryFilterTab('all')}
+                      className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
+                        chatHistoryFilterTab === 'all' 
+                          ? 'bg-primary-600 text-white' 
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Semua ({chatSessions.length})
+                    </button>
+                    <button 
+                      onClick={() => setChatHistoryFilterTab('starred')}
+                      className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                        chatHistoryFilterTab === 'starred' 
+                          ? 'bg-primary-600 text-white' 
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <span>Berbintang ({chatSessions.filter(s => s.isStarred).length})</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* List of Chat Sessions */}
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-2.5">
+                  {(() => {
+                    const filtered = chatSessions.filter(s => {
+                      if (chatHistoryFilterTab === 'starred' && !s.isStarred) return false;
+                      if (!chatHistorySearchQuery.trim()) return true;
+                      const q = chatHistorySearchQuery.toLowerCase();
+                      const matchTitle = (s.title || '').toLowerCase().includes(q);
+                      const matchMsg = s.messages.some(m => (m.text || '').toLowerCase().includes(q));
+                      return matchTitle || matchMsg;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-12 flex flex-col items-center justify-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500">
+                            <History className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-300">
+                              {chatHistorySearchQuery ? "Tidak ada riwayat yang cocok dengan pencarian" : "Belum ada riwayat pesan AI"}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5 font-mono">
+                              {chatHistorySearchQuery ? "Coba kata kunci pencarian yang lain" : "Mulai percakapan baru dengan Bara AI sekarang"}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              handleNewChat();
+                              setChatMode('ai');
+                              setIsChatHistoryModalOpen(false);
+                            }}
+                            className="mt-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold rounded-xl shadow cursor-pointer flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Mulai Chat Baru</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map(session => {
+                      const isActive = currentSessionId === session.id;
+                      const lastMsg = session.messages[session.messages.length - 1];
+                      const formattedTime = new Date(session.updatedAt || Date.now()).toLocaleString('id-ID', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+
+                      return (
+                        <div 
+                          key={session.id}
+                          onClick={() => {
+                            handleSelectSession(session.id);
+                            setChatMode('ai');
+                            setIsChatHistoryModalOpen(false);
+                          }}
+                          className={`group relative p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            isActive 
+                              ? 'bg-primary-950/40 border-primary-500/60 shadow-lg ring-1 ring-primary-500/30' 
+                              : 'bg-[#14141a]/90 hover:bg-[#1a1a24] border-white/5 hover:border-primary-500/30'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                              isActive ? 'bg-primary-600 text-white' : 'bg-white/5 text-gray-400 group-hover:text-primary-400'
+                            }`}>
+                              <MessageSquare className="w-4 h-4" />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className={`text-sm font-semibold truncate ${isActive ? 'text-primary-300' : 'text-gray-200 group-hover:text-white'}`}>
+                                  {session.title || 'Percakapan Tanpa Judul'}
+                                </h4>
+                                {isActive && (
+                                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-primary-500/30 text-primary-200 font-mono border border-primary-500/40">
+                                    Aktif
+                                  </span>
+                                )}
+                                {session.isStarred && (
+                                  <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
+                                )}
+                              </div>
+
+                              <p className="text-xs text-gray-400 line-clamp-1 mt-1 font-mono">
+                                {lastMsg ? (lastMsg.text || 'Lampiran media') : 'Belum ada pesan'}
+                              </p>
+
+                              <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 font-mono">
+                                <span>{formattedTime}</span>
+                                <span>•</span>
+                                <span>{session.messages.length} pesan</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5" onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => handleToggleStarSession(session.id)}
+                              className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                                session.isStarred 
+                                  ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20' 
+                                  : 'hover:bg-white/10 text-gray-400 hover:text-white'
+                              }`}
+                              title={session.isStarred ? 'Hapus Bintang' : 'Bintangi'}
+                            >
+                              <Star className={`w-4 h-4 ${session.isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                            </button>
+
+                            <button 
+                              onClick={() => handleShareSession(session.id)}
+                              className="p-2 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                              title="Salin Riwayat Chat"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+
+                            <button 
+                              onClick={() => {
+                                if (window.confirm(`Yakin ingin menghapus percakapan "${session.title || 'ini'}"?`)) {
+                                  handleDeleteSession(session.id);
+                                }
+                              }}
+                              className="p-2 rounded-xl hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
+                              title="Hapus Percakapan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+
+                            <button 
+                              onClick={() => {
+                                handleSelectSession(session.id);
+                                setChatMode('ai');
+                                setIsChatHistoryModalOpen(false);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-primary-600/30 hover:bg-primary-600 text-primary-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer ml-1"
+                            >
+                              Buka
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Footer */}
+                <div className="p-3 sm:p-4 bg-[#14141c] border-t border-primary-500/30 flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-mono">
+                    {chatSessions.length} percakapan tersimpan di browser
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {chatSessions.length > 0 && (
+                      <button 
+                        onClick={() => {
+                          if (window.confirm("Yakin ingin menghapus seluruh riwayat pesan AI?")) {
+                            setChatSessions([]);
+                            setCurrentSessionId(null);
+                            setMessages([]);
+                            localStorage.removeItem(STORAGE_KEY_SESSIONS);
+                          }
+                        }}
+                        className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
+                      >
+                        Hapus Semua
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setIsChatHistoryModalOpen(false)}
+                      className="px-4 py-1.5 bg-[#1f1f2a] hover:bg-[#282836] text-gray-200 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
