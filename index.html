@@ -1,17 +1,86 @@
-<!doctype html>
-<html lang="id" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BARA AI — Futuristic AI Assistant</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-  </head>
-  <body class="bg-[#0A0A0A] text-gray-100 antialiased selection:bg-purple-600 selection:text-white fixed inset-0 overflow-hidden">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bara AI Web Creator & Official Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #08080a; color: #f3f4f6; }
+    .font-orbitron { font-family: 'Orbitron', sans-serif; }
+    .glass { background: rgba(20, 20, 28, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(139, 92, 246, 0.25); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+  <!-- Navbar -->
+  <nav class="sticky top-0 z-50 glass px-6 py-4 flex items-center justify-between shadow-xl">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center font-orbitron font-bold text-purple-400">
+        BA
+      </div>
+      <span class="font-orbitron font-bold text-xl tracking-wider text-white">BARA <span class="text-purple-400">AI</span></span>
+    </div>
+    <div class="hidden md:flex items-center gap-6 text-sm text-gray-300">
+      <a href="#fitur" class="hover:text-purple-400 transition-colors">Fitur</a>
+      <a href="#showcase" class="hover:text-purple-400 transition-colors">Showcase</a>
+      <a href="#kontak" class="hover:text-purple-400 transition-colors">Kontak</a>
+    </div>
+    <button onclick="alert('Bara AI Website Builder Siap Digunakan!')" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-purple-600/30">
+      Coba Bara AI
+    </button>
+  </nav>
 
+  <!-- Hero Section -->
+  <header class="max-w-5xl mx-auto px-6 py-16 text-center">
+    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-purple-500/30 text-purple-300 text-xs font-semibold mb-6">
+      <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> AI Website Builder Engine
+    </div>
+    <h1 class="text-4xl md:text-6xl font-extrabold font-orbitron tracking-tight text-white mb-6 leading-tight">
+      Buat Website Impian <br><span class="bg-gradient-to-r from-purple-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">Secara Instan Bersama Bara AI</span>
+    </h1>
+    <p class="text-gray-400 text-base md:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+      Ketik instruksi atau ide website kamu di chat room Bara AI, dan AI akan otomatis menghasilkan tampilan web modern, interaktif, serta siap dipublikasikan!
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <button onclick="document.getElementById('fitur').scrollIntoView({behavior:'smooth'})" class="px-7 py-3.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-purple-600/25">
+        Eksplor Fitur <i class="fa-solid fa-arrow-right ml-2"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Features Grid -->
+  <section id="fitur" class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl font-bold font-orbitron text-center text-white mb-10">Keunggulan Web Creator Bara AI</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-bolt"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Generasi Instan</h3>
+        <p class="text-gray-400 text-sm">Proses pembuatan website berbasis AI dalam hitungan detik dari instruksi bahasa Indonesia.</p>
+      </div>
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-code"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Edit & Salin Kode</h3>
+        <p class="text-gray-400 text-sm">Kamu dapat mengedit kode HTML/CSS secara langsung, menyalinnya ke clipboard, atau mengunduhnya.</p>
+      </div>
+      <div class="glass p-6 rounded-2xl flex flex-col gap-3">
+        <div class="w-12 h-12 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-xl">
+          <i class="fa-solid fa-mobile-screen"></i>
+        </div>
+        <h3 class="font-bold text-lg text-white">Responsif & Modern</h3>
+        <p class="text-gray-400 text-sm">Tampilan otomatis menyesuaikan dengan layar HP, tablet, maupun monitor desktop.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="glass mt-16 py-8 border-t border-purple-500/20 text-center text-gray-400 text-sm">
+    <p>© 2026 Bara Official & Bara AI Agent. All Rights Reserved.</p>
+  </footer>
+</body>
+</html>
