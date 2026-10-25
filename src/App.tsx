@@ -113,27 +113,38 @@ interface SavedNote {
 // KONSTANTA & DEFAULT VALUE
 // ============================================================================
 
-/** System Prompt Default Terpadu untuk Bara AI (Chat) dan Web AI (Pembuat Website) */
-const DEFAULT_SYSTEM_PROMPT = `Kamu adalah BARA AI & WEB AI: Asisten AI pribadi cerdas, proaktif, dan Full-Stack Software Engineer handal.
+/** System Prompt Default Terpisah untuk Bara AI (Chat) & Web Studio */
+const DEFAULT_BARA_SYSTEM_PROMPT = `Kamu adalah BARA AI: Asisten kecerdasan buatan serba bisa, cerdas, lugas, solutif, dan berdedikasi penuh untuk mematuhi setiap instruksi pengguna secara langsung dan presisi.
 
-Tugas & Identitas:
-Membantu pengguna dengan berbagai kebutuhan percakapan cerdas, tanya-jawab, analisis, konsultasi, coding, serta pembuatan website dan aplikasi web modern berkualitas tinggi.
+IDENTITAS & KARAKTER BARA AI:
+1. Mode Operasi: Chat, konsultasi, tanya-jawab, analisis data, penalaran logis, pembuatan naskah, asistensi belajar, dan penulisan skrip/kode pemrograman.
+2. Gaya Komunikasi: Ramah, keren, to the point, komunikatif, dan selalu memberikan jawaban yang berbobot tanpa bertele-tele.
+3. Kepatuhan Penuh (High Compliance):
+   - Ikuti nada, gaya, format, dan bahasa yang diinginkan pengguna.
+   - Jawab secara langsung tanpa khotbah moralitas yang tidak diminta atau penolakan palsu.
+   - Pada mode Bara AI, kamu TIDAK membuat halaman web utuh untuk live preview. Cukup berikan jawaban langsung atau potongan kode jika diminta.
+4. Format Penulisan Kode:
+   - Jika menyertakan kode pemrograman (Python, JavaScript, TypeScript, Bash, SQL, dll), WAJIB dibungkus dalam markdown code block bertanda bahasa (contoh: \`\`\`python ... \`\`\`).
+5. Respon Langsung & Tanpa Bertele-tele:
+   - Berikan jawaban yang langsung, mendalam, dan mendetail tanpa pembuka klise (seperti "Sebagai AI...", "Tentu!") atau peringatan moralistik yang tidak diminta.
+   - Penuhi kebutuhan eksplorasi kreatif, analisis, dan penulisan pengguna secara maksimal.`;
 
-Mode Operasi Terpadu:
-1. Mode Bara AI (Chat):
-   - Berfokus murni pada percakapan interaktif, konsultasi, tanya jawab, penjelasan konsep, penalaran, dan asistensi cerdas.
-   - Pada mode Bara AI, kamu HANYA melayani chat dan diskusi, TIDAK membuat website utuh yang ditujukan untuk web preview.
-2. Mode Web AI (Pembuat Website):
-   - Berfokus pada perancangan dan pembuatan website serta aplikasi web (Full-Stack).
-   - Setiap kali user meminta dibuatkan website, landing page, atau aplikasi web pada mode ini, buatkan kode lengkap yang interaktif, modern, dan responsif menggunakan HTML5, Tailwind CSS, JavaScript interaktif, dan penyimpanan lokal (localStorage).
-   - Seluruh kode website wajib dibungkus rapi dalam format \`\`\`html ... \`\`\` agar dapat langsung dijalankan dan ditampilkan pada Web Preview.
+const DEFAULT_WEB_SYSTEM_PROMPT = `Kamu adalah BARA WEB STUDIO (WEB AI): Senior Full-Stack Web Architect & UI/UX Designer spesialis pembuatan aplikasi web modern satu halaman (Single-File Full-Stack Web Applications).
 
-Aturan & Gaya Komunikasi:
-- Ramah, keren, profesional, solutif, dan informatif.
-- Setiap kode pemrograman WAJIB dibungkus dalam markdown code block sesuai bahasa (contoh: \`\`\`html, \`\`\`javascript, \`\`\`python).
-- Jangan lakukan hal ilegal atau berbahaya. Selalu berikan solusi terbaik dan kode yang rapi.`;
+IDENTITAS & KARAKTER WEB STUDIO:
+1. Tugas Utama: Merancang dan membuat aplikasi web, landing page, dashboard analitik, dan tools interaktif modern yang dapat langsung dijalankan di Web Preview.
+2. Aturan Kepatuhan Pembuatan Website (Strict Full-Stack Rule):
+   - Setiap kali user meminta dibuatkan atau dimodifikasi website/aplikasi web, kamu WAJIB menghasilkan SATU KODE LENGKAP UTUH yang dibungkus di dalam format \`\`\`html ... \`\`\`.
+   - Kode HTML tersebut harus berisi struktur lengkap: <!DOCTYPE html>, <html>, <head> (memuat CDN Tailwind CSS https://cdn.tailwindcss.com dan ikon FontAwesome/Lucide), serta <body> dengan CSS kustom dan script JavaScript interaktif.
+   - Gunakan localStorage untuk menyimpan data (seperti database lokal) agar fitur CRUD, to-do list, catatan, atau dashboard benar-benar interaktif dan datanya tersimpan.
+   - DILARANG memotong kode atau memberikan placeholder seperti "// kode lainnya silakan lanjutkan sendiri". Semua kode harus lengkap dan siap tayang!
+   - Di luar blok kode \`\`\`html, berikan ringkasan singkat fitur-fitur website yang telah dibuat.`;
+
+const DEFAULT_SYSTEM_PROMPT = DEFAULT_BARA_SYSTEM_PROMPT;
 
 /** Kunci penyimpanan lokal (localStorage) */
+const STORAGE_KEY_BARA_PROMPT = 'bara_ai_system_prompt';
+const STORAGE_KEY_WEB_PROMPT = 'bara_web_system_prompt';
 const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
 const STORAGE_KEY_CHAT = 'bara_ai_chat_history';
 const STORAGE_KEY_SESSIONS = 'bara_ai_chat_sessions';
@@ -833,11 +844,13 @@ export function App() {
   const [guestInputName, setGuestInputName] = useState('');
   const [userName, setUserName] = useState<string>(() => localStorage.getItem(STORAGE_KEY_USERNAME) || 'Bara User');
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [theme, setTheme] = useState<string>('purple');
-  const [systemPrompt, setSystemPrompt] = useState<string>(() => localStorage.getItem(STORAGE_KEY_PROMPT) || DEFAULT_SYSTEM_PROMPT);
+  const [baraSystemPrompt, setBaraSystemPrompt] = useState<string>(() => localStorage.getItem(STORAGE_KEY_BARA_PROMPT) || DEFAULT_BARA_SYSTEM_PROMPT);
+  const [webSystemPrompt, setWebSystemPrompt] = useState<string>(() => localStorage.getItem(STORAGE_KEY_WEB_PROMPT) || DEFAULT_WEB_SYSTEM_PROMPT);
+  const [activePromptTab, setActivePromptTab] = useState<'bara' | 'web'>('bara');
   const [isPromptSavedToast, setIsPromptSavedToast] = useState(false);
   
   const [chatMode, setChatMode] = useState<'room' | 'ai' | 'web'>('ai');
+  const systemPrompt = chatMode === 'web' ? webSystemPrompt : baraSystemPrompt;
   const [isWebAiMenuOpen, setIsWebAiMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -1370,7 +1383,9 @@ export function App() {
           message: userMsg.text,
           file: userMsg.file,
           history: newMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', sender: m.sender, text: m.text })),
-          systemPrompt,
+          systemPrompt: chatMode === 'web' ? webSystemPrompt : baraSystemPrompt,
+          baraPrompt: baraSystemPrompt,
+          webPrompt: webSystemPrompt,
           mode: chatMode === 'web' ? 'web' : 'ai'
         })
       });
@@ -1675,7 +1690,7 @@ ${rawCode}
           </div>
         </div>
       ) : (
-        <div className={`fixed inset-0 overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-primary-600 selection:text-white theme-${theme}`}>
+        <div className="fixed inset-0 overflow-hidden bg-[#0A0A0A] text-gray-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white theme-purple">
           {chatMode === 'room' && roomWallpaper && (
             <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
               {roomWallpaperType === 'video' ? (
@@ -2707,43 +2722,90 @@ ${rawCode}
                     </div>
                   </div>
 
-                  {/* Theme Selector */}
+                  {/* System Prompt Terpisah: Bara AI vs Web Studio */}
                   <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-mono text-primary-300 uppercase">Tema Aplikasi</h3>
-                    <div className="flex items-center gap-2">
-                      {[
-                        { id: 'purple', name: 'Purple', bg: 'bg-purple-500' },
-                        { id: 'green', name: 'Green', bg: 'bg-emerald-500' },
-                        { id: 'blue', name: 'Blue', bg: 'bg-blue-500' },
-                      ].map(t => (
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-mono text-primary-300 uppercase">System Prompt</h3>
+                      <div className="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-lg border border-primary-500/20 text-[10px]">
                         <button
-                          key={t.id}
-                          onClick={() => setTheme(t.id)}
-                          className={`flex-1 py-2 flex flex-col items-center gap-2 border rounded-xl transition-all cursor-pointer ${theme === t.id ? 'border-primary-400 bg-primary-900/20' : 'border-gray-800 bg-transparent hover:border-gray-600'}`}
+                          type="button"
+                          onClick={() => setActivePromptTab('bara')}
+                          className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                            activePromptTab === 'bara' 
+                              ? 'bg-primary-600 text-white font-medium shadow-sm' 
+                              : 'text-gray-400 hover:text-white'
+                          }`}
                         >
-                          <div className={`w-4 h-4 rounded-full ${t.bg}`}></div>
-                          <span className="text-xs">{t.name}</span>
+                          Bara AI
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => setActivePromptTab('web')}
+                          className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                            activePromptTab === 'web' 
+                              ? 'bg-primary-600 text-white font-medium shadow-sm' 
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          Web Studio
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* System Prompt */}
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-mono text-primary-300 uppercase">System Prompt</h3>
+                    <p className="text-[11px] text-gray-400 leading-relaxed">
+                      {activePromptTab === 'bara'
+                        ? 'Prompt khusus Bara AI (Chat, diskusi, analisis data, penalaran, asisten). Fokus pada kepatuhan percakapan.'
+                        : 'Prompt khusus Web Studio (Pembuat Website). Fokus pada instruksi pembuatan kode HTML, Tailwind, dan preview.'}
+                    </p>
+
                     <textarea
-                      value={systemPrompt}
-                      onChange={(e) => setSystemPrompt(e.target.value)}
-                      className="w-full bg-primary-900/10 border border-primary-500/30 rounded-xl px-3 py-2 text-xs text-gray-300 min-h-[120px]"
+                      value={activePromptTab === 'bara' ? baraSystemPrompt : webSystemPrompt}
+                      onChange={(e) => {
+                        if (activePromptTab === 'bara') {
+                          setBaraSystemPrompt(e.target.value);
+                        } else {
+                          setWebSystemPrompt(e.target.value);
+                        }
+                      }}
+                      className="w-full bg-primary-900/10 border border-primary-500/30 rounded-xl px-3 py-2 text-xs text-gray-200 font-mono min-h-[140px] focus:outline-none focus:border-primary-400 leading-relaxed"
+                      placeholder="Masukkan instruksi sistem..."
                     />
-                    <div className="flex justify-end">
-                       <button onClick={() => {
-                         localStorage.setItem(STORAGE_KEY_PROMPT, systemPrompt);
-                         setIsPromptSavedToast(true);
-                         setTimeout(() => setIsPromptSavedToast(false), 3000);
-                       }} className="text-xs bg-primary-600 px-3 py-1.5 rounded-lg text-white font-medium flex items-center gap-1 cursor-pointer">
-                         <Save className="w-3 h-3" /> Simpan Prompt
-                       </button>
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (activePromptTab === 'bara') {
+                            setBaraSystemPrompt(DEFAULT_BARA_SYSTEM_PROMPT);
+                            localStorage.setItem(STORAGE_KEY_BARA_PROMPT, DEFAULT_BARA_SYSTEM_PROMPT);
+                          } else {
+                            setWebSystemPrompt(DEFAULT_WEB_SYSTEM_PROMPT);
+                            localStorage.setItem(STORAGE_KEY_WEB_PROMPT, DEFAULT_WEB_SYSTEM_PROMPT);
+                          }
+                          setIsPromptSavedToast(true);
+                          setTimeout(() => setIsPromptSavedToast(false), 3000);
+                        }}
+                        className="text-[11px] text-gray-400 hover:text-gray-200 underline cursor-pointer"
+                      >
+                        Reset Bawaan
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (activePromptTab === 'bara') {
+                            localStorage.setItem(STORAGE_KEY_BARA_PROMPT, baraSystemPrompt);
+                            localStorage.setItem(STORAGE_KEY_PROMPT, baraSystemPrompt);
+                          } else {
+                            localStorage.setItem(STORAGE_KEY_WEB_PROMPT, webSystemPrompt);
+                          }
+                          setIsPromptSavedToast(true);
+                          setTimeout(() => setIsPromptSavedToast(false), 3000);
+                        }}
+                        className="text-xs bg-primary-600 hover:bg-primary-500 px-3 py-1.5 rounded-lg text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary-900/20"
+                      >
+                        <Save className="w-3.5 h-3.5" /> Simpan Prompt {activePromptTab === 'bara' ? 'Bara' : 'Web'}
+                      </button>
                     </div>
                     {isPromptSavedToast && <p className="text-emerald-400 text-xs text-right mt-1">✓ Berhasil disimpan</p>}
                   </div>
