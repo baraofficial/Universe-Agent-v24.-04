@@ -4,7 +4,7 @@ import http from "http";
 import { Server } from "socket.io";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { runGitAdd, runGitCommit, runGitPush } from "./src/tools/git.js";
 import { commitFileToGithub } from "./src/tools/github.js";
 
@@ -326,10 +326,11 @@ ATURAN WAJIB SISTEM KELUARAN (OUTPUT SCHEMA):
 
       const promptWithContext = `Konteks percakapan sebelumnya:\n${chatContext}\n\nPertanyaan/Perintah User saat ini:\n${userPrompt}`;
 
+      // Model berkecepatan tinggi: gemini-3.1-flash-lite (latency terendah, minimal thinking)
       const candidateModels = [
-        "gemini-3.8-flash",
+        "gemini-3.1-flash-lite",
         "gemini-flash-latest",
-        "gemini-3.1-flash-lite"
+        "gemini-3.8-flash"
       ];
 
       let response: any = null;
@@ -341,8 +342,46 @@ ATURAN WAJIB SISTEM KELUARAN (OUTPUT SCHEMA):
 
       for (const modelName of candidateModels) {
         let retries = 1;
-        let delay = 600;
+        let delay = 300;
         let success = false;
+
+        const isModel38 = modelName === 'gemini-3.8-flash';
+        const modelConfig: any = {
+          systemInstruction: finalSystemInstruction,
+          temperature: 0.2, // Nilai temperatur rendah (0.2) membuat AI sangat patuh dan deterministik
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              responseText: {
+                type: Type.STRING,
+                description: "Jawaban langsung dari agent. Format markdown didukung."
+              },
+              toolUsed: {
+                type: Type.STRING,
+                description: "Tool yang relevan (Browser, Kalkulator, Catatan, Umum, dsb.)"
+              },
+              status: {
+                type: Type.STRING,
+                description: "Status eksekusi (Selesai, Ditolak, dll)"
+              },
+              gitAction: {
+                type: Type.OBJECT,
+                description: "Jika user meminta commit/push ke github",
+                properties: {
+                  commitMessage: { type: Type.STRING, description: "Pesan commit" }
+                },
+                required: ["commitMessage"]
+              }
+            },
+            required: ["responseText", "toolUsed", "status"]
+          }
+        };
+
+        // Low thinking level untuk gemini-3.8-flash agar fast response
+        if (isModel38) {
+          modelConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+        }
 
         while (retries >= 0) {
           try {
@@ -352,37 +391,7 @@ ATURAN WAJIB SISTEM KELUARAN (OUTPUT SCHEMA):
                 { text: promptWithContext },
                 { inlineData }
               ] : promptWithContext,
-              config: {
-                systemInstruction: finalSystemInstruction,
-                temperature: 0.2, // Nilai temperatur rendah (0.2) membuat AI sangat patuh, deterministik, dan konsisten pada instruksi
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: Type.OBJECT,
-                  properties: {
-                    responseText: {
-                      type: Type.STRING,
-                      description: "Jawaban dari agent. Jika menyertakan sumber referensi, gunakan format markdown link [Nama Sumber](URL). Ingat jika ada sumber wajib dibuat jadi Markdown link."
-                    },
-                    toolUsed: {
-                      type: Type.STRING,
-                      description: "Tool yang relevan (Browser, Kalkulator, Catatan, Umum, dsb.)"
-                    },
-                    status: {
-                      type: Type.STRING,
-                      description: "Status eksekusi (Selesai, Ditolak (Ilegal), dll)"
-                    },
-                    gitAction: {
-                      type: Type.OBJECT,
-                      description: "Jika user meminta untuk melakukan commit dan push ke github, isi object ini.",
-                      properties: {
-                        commitMessage: { type: Type.STRING, description: "Pesan commit yang sesuai dengan permintaan" }
-                      },
-                      required: ["commitMessage"]
-                    }
-                  },
-                  required: ["responseText", "toolUsed", "status"]
-                }
-              }
+              config: modelConfig
             });
             success = true;
             break;
@@ -392,7 +401,7 @@ ATURAN WAJIB SISTEM KELUARAN (OUTPUT SCHEMA):
             if (isBusy && retries > 0) {
               retries--;
               await new Promise(resolve => setTimeout(resolve, delay));
-              delay *= 2;
+              delay *= 1.5;
             } else {
               break;
             }
