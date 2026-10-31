@@ -65,16 +65,6 @@ import {
 // STRUKTUR DATA (TYPES & INTERFACES)
 // ============================================================================
 
-/** Struktur data untuk proyek website buatan Bara AI */
-interface WebsiteProject {
-  id: string;
-  title: string;
-  code: string;
-  createdAt: number;
-  updatedAt: number;
-  isFullStack?: boolean;
-}
-
 /** Struktur data untuk pesan chat antara User dan AI Agent */
 interface ChatSession {
   id: string;
@@ -82,7 +72,7 @@ interface ChatSession {
   messages: ChatMessage[];
   updatedAt: number;
   isStarred: boolean;
-  mode?: 'ai' | 'web';
+  mode?: 'ai' | 'room';
 }
 
 interface ChatMessage {
@@ -114,518 +104,31 @@ interface SavedNote {
 // KONSTANTA & DEFAULT VALUE
 // ============================================================================
 
-/** System Prompt Default Terpisah untuk Bara AI (Chat) & Web Studio */
+/** System Prompt Default untuk Bara AI */
 const DEFAULT_BARA_SYSTEM_PROMPT = `Kamu adalah BARA AI: Asisten kecerdasan buatan serba bisa, cerdas, lugas, solutif, dan berdedikasi penuh untuk mematuhi setiap instruksi pengguna secara langsung dan presisi.
 
 IDENTITAS & KARAKTER BARA AI:
-1. Mode Operasi: Chat, konsultasi, tanya-jawab, analisis data, penalaran logis, pembuatan naskah, asistensi belajar, dan penulisan skrip/kode pemrograman.
+1. Mode Operasi: Chat, konsultasi, tanya-jawab, analisis data, penalaran logis, pembuatan naskah, asistensi belajar, pemecahan masalah teknis, dan penulisan skrip/kode pemrograman.
 2. Gaya Komunikasi: Ramah, keren, to the point, komunikatif, dan selalu memberikan jawaban yang berbobot tanpa bertele-tele.
 3. Kepatuhan Penuh (High Compliance):
    - Ikuti nada, gaya, format, dan bahasa yang diinginkan pengguna.
    - Jawab secara langsung tanpa khotbah moralitas yang tidak diminta atau penolakan palsu.
-   - Pada mode Bara AI, kamu TIDAK membuat halaman web utuh untuk live preview. Cukup berikan jawaban langsung atau potongan kode jika diminta.
 4. Format Penulisan Kode:
-   - Jika menyertakan kode pemrograman (Python, JavaScript, TypeScript, Bash, SQL, dll), WAJIB dibungkus dalam markdown code block bertanda bahasa (contoh: \`\`\`python ... \`\`\`).
+   - Jika menyertakan kode pemrograman (Python, JavaScript, TypeScript, Bash, SQL, HTML, CSS, dll), WAJIB dibungkus dalam markdown code block bertanda bahasa (contoh: \`\`\`python ... \`\`\`).
 5. Respon Langsung & Tanpa Bertele-tele:
    - Berikan jawaban yang langsung, mendalam, dan mendetail tanpa pembuka klise (seperti "Sebagai AI...", "Tentu!") atau peringatan moralistik yang tidak diminta.
    - Penuhi kebutuhan eksplorasi kreatif, analisis, dan penulisan pengguna secara maksimal.`;
-
-const DEFAULT_WEB_SYSTEM_PROMPT = `Kamu adalah BARA WEB STUDIO (WEB AI): Senior Full-Stack Web Architect & UI/UX Designer spesialis pembuatan aplikasi web modern satu halaman (Single-File Full-Stack Web Applications).
-
-IDENTITAS & KARAKTER WEB STUDIO:
-1. Tugas Utama: Merancang dan membuat aplikasi web, landing page, dashboard analitik, dan tools interaktif modern yang dapat langsung dijalankan di Web Preview.
-2. Aturan Kepatuhan Pembuatan Website (Strict Full-Stack Rule):
-   - Setiap kali user meminta dibuatkan atau dimodifikasi website/aplikasi web, kamu WAJIB menghasilkan SATU KODE LENGKAP UTUH yang dibungkus di dalam format \`\`\`html ... \`\`\`.
-   - Kode HTML tersebut harus berisi struktur lengkap: <!DOCTYPE html>, <html>, <head> (memuat CDN Tailwind CSS https://cdn.tailwindcss.com dan ikon FontAwesome/Lucide), serta <body> dengan CSS kustom dan script JavaScript interaktif.
-   - Gunakan localStorage untuk menyimpan data (seperti database lokal) agar fitur CRUD, to-do list, catatan, atau dashboard benar-benar interaktif dan datanya tersimpan.
-   - DILARANG memotong kode atau memberikan placeholder seperti "// kode lainnya silakan lanjutkan sendiri". Semua kode harus lengkap dan siap tayang!
-   - Di luar blok kode \`\`\`html, berikan ringkasan singkat fitur-fitur website yang telah dibuat.`;
 
 const DEFAULT_SYSTEM_PROMPT = DEFAULT_BARA_SYSTEM_PROMPT;
 
 /** Kunci penyimpanan lokal (localStorage) */
 const STORAGE_KEY_BARA_PROMPT = 'bara_ai_system_prompt';
-const STORAGE_KEY_WEB_PROMPT = 'bara_web_system_prompt';
 const STORAGE_KEY_PROMPT = 'bara_ai_system_prompt';
 const STORAGE_KEY_CHAT = 'bara_ai_chat_history';
 const STORAGE_KEY_SESSIONS = 'bara_ai_chat_sessions';
 const STORAGE_KEY_TASKS = 'bara_ai_task_history';
 const STORAGE_KEY_NOTES = 'bara_ai_saved_notes';
 const STORAGE_KEY_USERNAME = 'bara_ai_username';
-const STORAGE_KEY_WEBSITES = 'bara_ai_created_websites';
-
-/** Default Template Website Full Stack untuk Bara AI Web Creator */
-const DEFAULT_WEBSITE_HTML = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bara AI - Full Stack Hub & Task Engine</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #08080a; color: #f3f4f6; }
-    .font-orbitron { font-family: 'Orbitron', sans-serif; }
-    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
-    .glass { background: rgba(18, 18, 26, 0.85); backdrop-filter: blur(14px); border: 1px solid rgba(139, 92, 246, 0.25); }
-    .glass-dark { background: rgba(10, 10, 14, 0.95); backdrop-filter: blur(14px); border: 1px solid rgba(139, 92, 246, 0.15); }
-  </style>
-</head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-purple-600 selection:text-white">
-
-  <!-- Navbar -->
-  <nav class="sticky top-0 z-50 glass px-6 py-4 flex items-center justify-between shadow-2xl">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center font-orbitron font-bold text-purple-400">
-        BA
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-orbitron font-bold text-lg tracking-wider text-white">BARA <span class="text-purple-400">AI</span></span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">FULL STACK</span>
-        </div>
-        <p class="text-[10px] text-gray-400">Frontend UI • REST API Mock • Local DB Engine</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <div class="hidden sm:flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span id="api-status-badge">API: 200 OK | DB: Connected</span>
-      </div>
-      <button onclick="document.getElementById('crud-section').scrollIntoView({behavior:'smooth'})" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-purple-600/30">
-        Mulai App
-      </button>
-    </div>
-  </nav>
-
-  <!-- Hero Section -->
-  <header class="max-w-6xl mx-auto px-6 py-12 text-center">
-    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-purple-500/30 text-purple-300 text-xs font-semibold mb-6">
-      <i class="fa-solid fa-layer-group text-purple-400"></i> Full Stack Web Application Generator
-    </div>
-    <h1 class="text-4xl md:text-5xl font-extrabold font-orbitron tracking-tight text-white mb-4 leading-tight">
-      Sistem Web <span class="bg-gradient-to-r from-purple-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">Full Stack Otomatis</span>
-    </h1>
-    <p class="text-gray-400 text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
-      Dilengkapi Frontend interaktif, Mock REST API Controller dengan endpoint lengkap (GET, POST, PATCH, DELETE), serta penyimpanan database persisten.
-    </p>
-    
-    <!-- Quick Architecture Chips -->
-    <div class="flex flex-wrap items-center justify-center gap-3 text-xs font-mono">
-      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-desktop text-purple-400 mr-1.5"></i>Frontend UI (Tailwind)</span>
-      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-server text-indigo-400 mr-1.5"></i>REST API Gateway</span>
-      <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300"><i class="fa-solid fa-database text-pink-400 mr-1.5"></i>Persistent DB Storage</span>
-    </div>
-  </header>
-
-  <!-- Main Full Stack Interactive Workspace -->
-  <main id="crud-section" class="max-w-6xl mx-auto px-6 pb-16 flex-1 w-full flex flex-col gap-8">
-    
-    <!-- Stats Row -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="glass p-5 rounded-2xl flex items-center justify-between">
-        <div>
-          <p class="text-xs text-gray-400 font-mono">TOTAL DATA (DB)</p>
-          <h3 id="stat-total" class="text-2xl font-bold font-orbitron text-white mt-1">0</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-database"></i>
-        </div>
-      </div>
-      <div class="glass p-5 rounded-2xl flex items-center justify-between">
-        <div>
-          <p class="text-xs text-gray-400 font-mono">STATUS ACTIVE</p>
-          <h3 id="stat-active" class="text-2xl font-bold font-orbitron text-yellow-400 mt-1">0</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-clock"></i>
-        </div>
-      </div>
-      <div class="glass p-5 rounded-2xl flex items-center justify-between">
-        <div>
-          <p class="text-xs text-gray-400 font-mono">TOTAL API CALLS</p>
-          <h3 id="stat-requests" class="text-2xl font-bold font-orbitron text-emerald-400 mt-1">0</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-network-wired"></i>
-        </div>
-      </div>
-    </div>
-
-    <!-- 2 Column Workspace: Frontend CRUD & Backend API Console -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      
-      <!-- Left Column: Frontend UI & Interactive CRUD (7 Cols) -->
-      <section class="lg:col-span-7 flex flex-col gap-6">
-        
-        <!-- Add Item Form (POST /api/items) -->
-        <div class="glass p-6 rounded-3xl shadow-xl">
-          <div class="flex items-center justify-between mb-4 border-b border-purple-500/20 pb-3">
-            <h2 class="text-base font-bold font-orbitron text-white flex items-center gap-2">
-              <i class="fa-solid fa-plus-circle text-purple-400"></i> Tambah Proyek / Tugas Baru
-            </h2>
-            <span class="text-[11px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded-lg border border-purple-500/30">POST /api/projects</span>
-          </div>
-
-          <form id="item-form" onsubmit="handleCreateItem(event)" class="flex flex-col gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-gray-300 mb-1">Nama Proyek / Tugas</label>
-              <input 
-                id="input-title" 
-                type="text" 
-                required 
-                placeholder="Contoh: Buat sistem autentikasi pengguna..."
-                class="w-full bg-[#12121a] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-              />
-            </div>
-            
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-semibold text-gray-300 mb-1">Kategori</label>
-                <select id="input-category" class="w-full bg-[#12121a] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-purple-500">
-                  <option value="Frontend">Frontend UI</option>
-                  <option value="Backend">Backend API</option>
-                  <option value="Database">Database Schema</option>
-                  <option value="FullStack">Full Stack</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-300 mb-1">Prioritas</label>
-                <select id="input-priority" class="w-full bg-[#12121a] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-purple-500">
-                  <option value="Tinggi">Tinggi (High)</option>
-                  <option value="Sedang">Sedang (Medium)</option>
-                  <option value="Rendah">Rendah (Low)</option>
-                </select>
-              </div>
-            </div>
-
-            <button type="submit" class="mt-2 w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-purple-600/25 flex items-center justify-center gap-2">
-              <i class="fa-solid fa-paper-plane"></i> Kirim ke Database (Execute POST)
-            </button>
-          </form>
-        </div>
-
-        <!-- Data List / Table (GET, PATCH, DELETE) -->
-        <div class="glass p-6 rounded-3xl shadow-xl flex flex-col gap-4">
-          <div class="flex items-center justify-between border-b border-purple-500/20 pb-3">
-            <div>
-              <h2 class="text-base font-bold font-orbitron text-white">Daftar Proyek di Database</h2>
-              <p class="text-xs text-gray-400 font-mono">GET /api/projects</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button onclick="filterItems('all')" id="btn-filter-all" class="px-2.5 py-1 text-xs rounded-lg bg-purple-600 text-white font-semibold">Semua</button>
-              <button onclick="filterItems('pending')" id="btn-filter-pending" class="px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold">Aktif</button>
-              <button onclick="filterItems('completed')" id="btn-filter-completed" class="px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold">Selesai</button>
-            </div>
-          </div>
-
-          <!-- Items Container -->
-          <div id="items-container" class="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-            <!-- Dynamic items rendered by JavaScript -->
-          </div>
-        </div>
-
-      </section>
-
-      <!-- Right Column: Backend API & Database Console Monitor (5 Cols) -->
-      <section class="lg:col-span-5 flex flex-col gap-6">
-        
-        <!-- Live API & Request Terminal -->
-        <div class="glass-dark p-5 rounded-3xl border border-purple-500/30 flex flex-col h-[460px] shadow-2xl">
-          <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-red-500"></span>
-              <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
-              <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-              <span class="text-xs font-mono font-bold text-gray-300 ml-2">REST API Live Logs</span>
-            </div>
-            <button onclick="clearLogs()" class="text-[10px] text-gray-400 hover:text-white font-mono px-2 py-0.5 rounded bg-white/5">
-              Clear
-            </button>
-          </div>
-
-          <div id="logs-terminal" class="flex-1 overflow-y-auto font-mono-code text-[11px] flex flex-col gap-1.5 text-gray-300 pr-1">
-            <!-- Dynamic logs will be injected here -->
-          </div>
-
-          <div class="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 font-mono">
-            <span>Server: Mock REST Engine</span>
-            <button onclick="testPingApi()" class="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg border border-purple-500/30 text-[11px]">
-              <i class="fa-solid fa-bolt mr-1"></i> Ping API
-            </button>
-          </div>
-        </div>
-
-        <!-- Database Engine Inspector -->
-        <div class="glass p-5 rounded-3xl flex flex-col gap-3">
-          <h3 class="text-sm font-bold font-orbitron text-white flex items-center gap-2">
-            <i class="fa-solid fa-server text-indigo-400"></i> Database Inspector
-          </h3>
-          <p class="text-xs text-gray-400">
-            Database ini tersimpan secara lokal dan persisten di browser dengan skema relasional terstruktur.
-          </p>
-          <div class="flex items-center gap-2 pt-2">
-            <button onclick="resetDatabase()" class="flex-1 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 text-xs font-semibold rounded-xl transition-all">
-              <i class="fa-solid fa-rotate-left mr-1"></i> Reset Data Awal
-            </button>
-            <button onclick="exportDatabaseJson()" class="flex-1 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-300 text-xs font-semibold rounded-xl transition-all">
-              <i class="fa-solid fa-download mr-1"></i> Export DB (.json)
-            </button>
-          </div>
-        </div>
-
-      </section>
-
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="glass mt-8 py-6 border-t border-purple-500/20 text-center text-gray-400 text-xs font-mono">
-    <p>© 2026 Bara AI - Full Stack Web Application Generator. Built with Frontend UI, REST API, & Persistent Database.</p>
-  </footer>
-
-  <!-- FULL STACK BACKEND CONTROLLER & DATABASE LOGIC (JAVASCRIPT) -->
-  <script>
-    // -------------------------------------------------------------
-    // DATABASE STORAGE ENGINE
-    // -------------------------------------------------------------
-    const DB_KEY = 'bara_fullstack_projects_db';
-    let currentFilter = 'all';
-    let totalApiRequests = 0;
-
-    const initialSeedData = [
-      { id: 1, title: 'Inisialisasi Backend REST API & Routes', category: 'Backend', priority: 'Tinggi', completed: true, createdAt: '2026-10-10 10:00' },
-      { id: 2, title: 'Koneksi Persistent Database Storage', category: 'Database', priority: 'Tinggi', completed: true, createdAt: '2026-10-10 10:15' },
-      { id: 3, title: 'Rancang UI Dashboard dengan Tailwind CSS', category: 'Frontend', priority: 'Sedang', completed: false, createdAt: '2026-10-10 10:30' },
-      { id: 4, title: 'Integrasi Endpoints CRUD (Create, Read, Update, Delete)', category: 'FullStack', priority: 'Tinggi', completed: false, createdAt: '2026-10-10 10:45' }
-    ];
-
-    function getDB() {
-      try {
-        const raw = localStorage.getItem(DB_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch (e) {}
-      localStorage.setItem(DB_KEY, JSON.stringify(initialSeedData));
-      return initialSeedData;
-    }
-
-    function saveDB(data) {
-      localStorage.setItem(DB_KEY, JSON.stringify(data));
-    }
-
-    // -------------------------------------------------------------
-    // BACKEND REST API LOGS
-    // -------------------------------------------------------------
-    function appendApiLog(method, endpoint, statusCode, message) {
-      totalApiRequests++;
-      document.getElementById('stat-requests').innerText = totalApiRequests;
-
-      const terminal = document.getElementById('logs-terminal');
-      const time = new Date().toLocaleTimeString('id-ID');
-      const statusColor = statusCode >= 400 ? 'text-red-400' : (statusCode >= 201 ? 'text-purple-400' : 'text-emerald-400');
-      
-      const logEl = document.createElement('div');
-      logEl.className = 'py-1 border-b border-white/5 flex flex-col gap-0.5';
-      logEl.innerHTML = \`
-        <div class="flex items-center justify-between">
-          <span><strong class="\${statusColor}">[\${method}]</strong> <span class="text-gray-200">\${endpoint}</span></span>
-          <span class="text-[10px] text-gray-500">\${time}</span>
-        </div>
-        <div class="text-[10px] text-gray-400 flex items-center gap-2">
-          <span class="px-1 rounded bg-white/10 \${statusColor}">\${statusCode}</span>
-          <span>\${message}</span>
-        </div>
-      \`;
-      terminal.appendChild(logEl);
-      terminal.scrollTop = terminal.scrollHeight;
-    }
-
-    // -------------------------------------------------------------
-    // MOCK BACKEND CONTROLLERS (REST API)
-    // -------------------------------------------------------------
-    const api = {
-      // GET /api/projects
-      async getProjects() {
-        const items = getDB();
-        appendApiLog('GET', '/api/projects', 200, \`Fetch \${items.length} records sukses\`);
-        return { status: 200, data: items };
-      },
-
-      // POST /api/projects
-      async createProject(payload) {
-        if (!payload.title || !payload.title.trim()) {
-          appendApiLog('POST', '/api/projects', 400, 'Validasi gagal: Nama proyek wajib diisi');
-          return { status: 400, error: 'Title required' };
-        }
-        const items = getDB();
-        const newItem = {
-          id: Date.now(),
-          title: payload.title.trim(),
-          category: payload.category || 'FullStack',
-          priority: payload.priority || 'Sedang',
-          completed: false,
-          createdAt: new Date().toLocaleString('id-ID')
-        };
-        items.unshift(newItem);
-        saveDB(items);
-        appendApiLog('POST', '/api/projects', 201, \`Item id #\${newItem.id} berhasil ditambahkan\`);
-        return { status: 201, data: newItem };
-      },
-
-      // PATCH /api/projects/:id
-      async toggleStatus(id) {
-        const items = getDB();
-        const target = items.find(i => i.id == id);
-        if (!target) {
-          appendApiLog('PATCH', \`/api/projects/\${id}\`, 404, 'Item tidak ditemukan');
-          return { status: 404, error: 'Not found' };
-        }
-        target.completed = !target.completed;
-        saveDB(items);
-        appendApiLog('PATCH', \`/api/projects/\${id}\`, 200, \`Status id #\${id} diubah ke: \${target.completed ? 'Selesai' : 'Aktif'}\`);
-        return { status: 200, data: target };
-      },
-
-      // DELETE /api/projects/:id
-      async deleteProject(id) {
-        let items = getDB();
-        const target = items.find(i => i.id == id);
-        if (!target) {
-          appendApiLog('DELETE', \`/api/projects/\${id}\`, 404, 'Item tidak ditemukan');
-          return { status: 404, error: 'Not found' };
-        }
-        items = items.filter(i => i.id != id);
-        saveDB(items);
-        appendApiLog('DELETE', \`/api/projects/\${id}\`, 200, \`Item id #\${id} dihapus dari database\`);
-        return { status: 200, success: true };
-      }
-    };
-
-    // -------------------------------------------------------------
-    // FRONTEND UI RENDERING & EVENT HANDLERS
-    // -------------------------------------------------------------
-    async function renderItems() {
-      const res = await api.getProjects();
-      let items = res.data;
-
-      // Update counters
-      document.getElementById('stat-total').innerText = items.length;
-      document.getElementById('stat-active').innerText = items.filter(i => !i.completed).length;
-
-      if (currentFilter === 'pending') {
-        items = items.filter(i => !i.completed);
-      } else if (currentFilter === 'completed') {
-        items = items.filter(i => i.completed);
-      }
-
-      const container = document.getElementById('items-container');
-      if (items.length === 0) {
-        container.innerHTML = '<div class="py-8 text-center text-gray-500 text-xs italic">Tidak ada proyek dalam kategori ini.</div>';
-        return;
-      }
-
-      container.innerHTML = items.map(item => \`
-        <div class="p-3.5 rounded-2xl glass flex items-center justify-between gap-3 transition-all hover:border-purple-500/50">
-          <div class="flex items-center gap-3 min-w-0 flex-1">
-            <button onclick="handleToggleItem(\${item.id})" class="w-6 h-6 rounded-lg border flex items-center justify-center transition-colors cursor-pointer \${
-              item.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-white/20 text-transparent hover:border-purple-500'
-            }">
-              <i class="fa-solid fa-check text-xs"></i>
-            </button>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold truncate \${item.completed ? 'line-through text-gray-500' : 'text-gray-100'}">
-                \${item.title}
-              </p>
-              <div class="flex items-center gap-2 text-[10px] text-gray-400 font-mono mt-0.5">
-                <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10">\${item.category}</span>
-                <span class="text-purple-300">[\${item.priority}]</span>
-                <span class="text-gray-500">\${item.createdAt}</span>
-              </div>
-            </div>
-          </div>
-          <button onclick="handleDeleteItem(\${item.id})" class="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer" title="Hapus Proyek">
-            <i class="fa-solid fa-trash-can text-xs"></i>
-          </button>
-        </div>
-      \`).join('');
-    }
-
-    async function handleCreateItem(e) {
-      e.preventDefault();
-      const titleInput = document.getElementById('input-title');
-      const catInput = document.getElementById('input-category');
-      const prioInput = document.getElementById('input-priority');
-
-      const payload = {
-        title: titleInput.value,
-        category: catInput.value,
-        priority: prioInput.value
-      };
-
-      const res = await api.createProject(payload);
-      if (res.status === 201) {
-        titleInput.value = '';
-        renderItems();
-      }
-    }
-
-    async function handleToggleItem(id) {
-      await api.toggleStatus(id);
-      renderItems();
-    }
-
-    async function handleDeleteItem(id) {
-      await api.deleteProject(id);
-      renderItems();
-    }
-
-    function filterItems(type) {
-      currentFilter = type;
-      ['all', 'pending', 'completed'].forEach(t => {
-        const btn = document.getElementById('btn-filter-' + t);
-        if (t === type) {
-          btn.className = 'px-2.5 py-1 text-xs rounded-lg bg-purple-600 text-white font-semibold';
-        } else {
-          btn.className = 'px-2.5 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 font-semibold';
-        }
-      });
-      renderItems();
-    }
-
-    function testPingApi() {
-      appendApiLog('GET', '/api/healthcheck', 200, 'Server Mock API aktif & merespons dalam 12ms');
-    }
-
-    function clearLogs() {
-      document.getElementById('logs-terminal').innerHTML = '';
-    }
-
-    function resetDatabase() {
-      localStorage.setItem(DB_KEY, JSON.stringify(initialSeedData));
-      appendApiLog('POST', '/api/database/seed', 200, 'Database berhasil di-reset ke data bawaan');
-      renderItems();
-    }
-
-    function exportDatabaseJson() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getDB(), null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", "bara_fullstack_database.json");
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      appendApiLog('GET', '/api/database/export', 200, 'Export JSON file downloaded');
-    }
-
-    // Initial boot
-    window.addEventListener('DOMContentLoaded', () => {
-      appendApiLog('INIT', '/api/boot', 200, 'Full Stack Application Engine Started');
-      renderItems();
-    });
-  </script>
-</body>
-</html>`;
 
 /** Daftar Tools yang tersedia untuk BARA AI */
 const AGENT_TOOLS = [
@@ -846,14 +349,12 @@ export function App() {
   const [userName, setUserName] = useState<string>(() => localStorage.getItem(STORAGE_KEY_USERNAME) || 'Bara User');
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [baraSystemPrompt, setBaraSystemPrompt] = useState<string>(() => localStorage.getItem(STORAGE_KEY_BARA_PROMPT) || DEFAULT_BARA_SYSTEM_PROMPT);
-  const [webSystemPrompt, setWebSystemPrompt] = useState<string>(() => localStorage.getItem(STORAGE_KEY_WEB_PROMPT) || DEFAULT_WEB_SYSTEM_PROMPT);
-  const [activePromptTab, setActivePromptTab] = useState<'bara' | 'web'>('bara');
+
   const [isPromptSavedToast, setIsPromptSavedToast] = useState(false);
   const [currentView, setCurrentView] = useState<'landing' | 'app'>('landing');
   
-  const [chatMode, setChatMode] = useState<'room' | 'ai' | 'web'>('ai');
-  const systemPrompt = chatMode === 'web' ? webSystemPrompt : baraSystemPrompt;
-  const [isWebAiMenuOpen, setIsWebAiMenuOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<'room' | 'ai'>('ai');
+  const systemPrompt = baraSystemPrompt;
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CHAT);
@@ -908,171 +409,11 @@ export function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [actionMenuSessionId, setActionMenuSessionId] = useState<string | null>(null);
   
-  // Website Builder States
-  const [websites, setWebsites] = useState<WebsiteProject[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_WEBSITES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return [{
-      id: 'default_website_1',
-      title: 'Bara AI Full Stack Hub & Task Engine',
-      code: DEFAULT_WEBSITE_HTML,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isFullStack: true
-    }];
-  });
-
-  const [activeWebsiteId, setActiveWebsiteId] = useState<string>(() => {
-    return websites[0]?.id || 'default_website_1';
-  });
-
-  const [isWebsitePreviewOpen, setIsWebsitePreviewOpen] = useState(false);
-  const [isWebsiteListOpen, setIsWebsiteListOpen] = useState(false);
-  const [isEditingWebsiteCode, setIsEditingWebsiteCode] = useState(false);
-  const [isWebsiteFullscreen, setIsWebsiteFullscreen] = useState(false);
-  const [is3DotMenuOpen, setIs3DotMenuOpen] = useState(false);
-  const [editingWebsiteCodeText, setEditingWebsiteCodeText] = useState('');
-  const [websiteCopiedToast, setWebsiteCopiedToast] = useState(false);
-  const [websiteCodeModalTab, setWebsiteCodeModalTab] = useState<'highlight' | 'edit' | 'split'>('highlight');
-
   // Pop up Riwayat Pesan AI States
   const [isChatHistoryModalOpen, setIsChatHistoryModalOpen] = useState(false);
   const [chatHistorySearchQuery, setChatHistorySearchQuery] = useState('');
   const [chatHistoryFilterTab, setChatHistoryFilterTab] = useState<'all' | 'starred'>('all');
 
-  // GitHub Sync States
-  const [isGithubSyncModalOpen, setIsGithubSyncModalOpen] = useState(false);
-  const [githubSyncPath, setGithubSyncPath] = useState('index.html');
-  const [githubSyncOwner, setGithubSyncOwner] = useState('baraofficial');
-  const [githubSyncRepo, setGithubSyncRepo] = useState('Universe-Agent-v24.-04');
-  const [githubSyncBranch, setGithubSyncBranch] = useState('main');
-  const [githubSyncMessage, setGithubSyncMessage] = useState('');
-  const [githubSyncToken, setGithubSyncToken] = useState(() => {
-    try {
-      return localStorage.getItem('bara_github_token') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [isGithubSyncing, setIsGithubSyncing] = useState(false);
-  const [githubSyncResult, setGithubSyncResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
-
-  const handleGithubSync = async () => {
-    if (!activeWebsiteCode) return;
-    setIsGithubSyncing(true);
-    setGithubSyncResult(null);
-    try {
-      if (githubSyncToken) {
-        try {
-          localStorage.setItem('bara_github_token', githubSyncToken);
-        } catch {}
-      }
-      const res = await fetch('/api/github/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: githubSyncPath.trim() || 'index.html',
-          content: activeWebsiteCode,
-          message: githubSyncMessage.trim() || `Update ${githubSyncPath.trim() || 'index.html'} via Bara AI Website Preview`,
-          owner: githubSyncOwner.trim() || 'baraofficial',
-          repo: githubSyncRepo.trim() || 'Universe-Agent-v24.-04',
-          branch: githubSyncBranch.trim() || 'main',
-          token: githubSyncToken.trim() || undefined
-        })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setGithubSyncResult({
-          success: true,
-          message: data.message || 'Berhasil sinkronisasi kode website ke GitHub!',
-          url: data.commitUrl
-        });
-      } else {
-        setGithubSyncResult({
-          success: false,
-          message: data.error || 'Gagal melakukan sinkronisasi ke GitHub.'
-        });
-      }
-    } catch (err: any) {
-      setGithubSyncResult({
-        success: false,
-        message: err.message || 'Terjadi kesalahan jaringan atau server saat sinkronisasi GitHub.'
-      });
-    } finally {
-      setIsGithubSyncing(false);
-    }
-  };
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_WEBSITES, JSON.stringify(websites));
-    } catch (e) {
-      console.error("Failed to save websites to localStorage", e);
-    }
-  }, [websites]);
-
-  const activeWebsite = websites.find(w => w.id === activeWebsiteId) || websites[0];
-  const activeWebsiteCode = activeWebsite?.code || DEFAULT_WEBSITE_HTML;
-
-  const prepareIframeSrcDoc = (rawCode: string) => {
-    let doc = rawCode || DEFAULT_WEBSITE_HTML;
-    if (!doc.toLowerCase().includes('<!doctype html') && !doc.toLowerCase().includes('<html')) {
-      doc = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Website Preview</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-[#09090b] text-gray-100 p-4">
-  ${doc}
-</body>
-</html>`;
-    }
-    
-    const errorBoundaryScript = `
-      <script>
-        window.onerror = function(msg, url, line) {
-          console.error("Website Preview Error:", msg, line);
-          var errDiv = document.getElementById('preview-error-banner');
-          if (!errDiv) {
-            errDiv = document.createElement('div');
-            errDiv.id = 'preview-error-banner';
-            errDiv.style.position = 'fixed';
-            errDiv.style.bottom = '10px';
-            errDiv.style.left = '10px';
-            errDiv.style.right = '10px';
-            errDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
-            errDiv.style.color = '#fff';
-            errDiv.style.padding = '8px 12px';
-            errDiv.style.borderRadius = '8px';
-            errDiv.style.fontSize = '12px';
-            errDiv.style.fontFamily = 'monospace';
-            errDiv.style.zIndex = '999999';
-            document.body.appendChild(errDiv);
-          }
-          errDiv.innerText = "Info Script: " + msg + " (Baris " + line + ")";
-          return true;
-        };
-      </script>
-    `;
-    
-    if (doc.includes('</head>')) {
-      doc = doc.replace('</head>', `${errorBoundaryScript}</head>`);
-    } else {
-      doc = errorBoundaryScript + doc;
-    }
-    
-    return doc;
-  };
-  
   const [isEditingUserName, setIsEditingUserName] = useState(false);
   const [tempUserName, setTempUserName] = useState('');
   
@@ -1164,7 +505,7 @@ export function App() {
             messages: messages,
             updatedAt: Date.now(),
             isStarred: existingIndex >= 0 ? prev[existingIndex].isStarred : false,
-            mode: chatMode === 'web' ? 'web' : 'ai'
+            mode: 'ai'
           };
 
           if (existingIndex >= 0) {
@@ -1385,10 +726,7 @@ export function App() {
           message: userMsg.text,
           file: userMsg.file,
           history: newMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', sender: m.sender, text: m.text })),
-          systemPrompt: chatMode === 'web' ? webSystemPrompt : baraSystemPrompt,
-          baraPrompt: baraSystemPrompt,
-          webPrompt: webSystemPrompt,
-          mode: chatMode === 'web' ? 'web' : 'ai'
+          systemPrompt: baraSystemPrompt, baraPrompt: baraSystemPrompt, mode: 'ai'
         })
       });
 
@@ -1416,51 +754,6 @@ export function App() {
 
       const aiReplyText = data.responseText || data.reply || data.text || data.message || (data.error ? `Error: ${data.error}` : "Maaf, terjadi kendala saat memproses permintaan.");
       
-      // Hanya di mode Web AI, ekstrak kode website dan perbarui project website
-      if (chatMode === 'web') {
-        const codeMatch = aiReplyText.match(/```html\s*\n?([\s\S]*?)```/i) || aiReplyText.match(/```(xml|jsx|tsx|vue|svelte)\s*\n?([\s\S]*?)```/i);
-        const isWebPrompt = userMsg.text.toLowerCase().includes('web') || 
-                           userMsg.text.toLowerCase().includes('website') || 
-                           userMsg.text.toLowerCase().includes('landing page') ||
-                           userMsg.text.toLowerCase().includes('tampilan');
-        const hasRealHtml = /<(!doctype|html|head|body|div|section|nav|header|main|h1|h2|p|button|span)[\s>]/i.test(aiReplyText);
-
-        if ((codeMatch || (isWebPrompt && hasRealHtml)) && !aiReplyText.startsWith('Error:') && !aiReplyText.startsWith('Maaf,') && !aiReplyText.startsWith('Server BARA AI mengembalikan')) {
-          const rawCode = codeMatch ? codeMatch[1].trim() : aiReplyText.trim();
-          let fullWebHtml = rawCode;
-          if (!fullWebHtml.toLowerCase().includes('<!doctype html') && !fullWebHtml.toLowerCase().includes('<html')) {
-            fullWebHtml = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Website - ${userMsg.text.slice(0, 25)}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: #09090b; color: #f4f4f5; margin: 0; padding: 0; }
-  </style>
-</head>
-<body>
-${rawCode}
-</body>
-</html>`;
-          }
-
-          const newWebProject: WebsiteProject = {
-            id: 'web_' + Date.now(),
-            title: userMsg.text.slice(0, 30) || 'Website Buatan Web AI',
-            code: fullWebHtml,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            isFullStack: true,
-          };
-
-          setWebsites(prev => [newWebProject, ...prev]);
-          setActiveWebsiteId(newWebProject.id);
-        }
-      }
-
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
@@ -1562,11 +855,7 @@ ${rawCode}
     if (session) {
       setCurrentSessionId(session.id);
       setMessages(session.messages);
-      if (session.mode === 'web') {
-        setChatMode('web');
-      } else {
-        setChatMode('ai');
-      }
+      setChatMode('ai');
     }
   };
 
@@ -1791,54 +1080,19 @@ ${rawCode}
                           </span>
                         </button>
 
-                        {/* 2. Tombol Web AI (Di Sini AI Bisa Buat Website) */}
-                        <div className={`w-full rounded-xl border border-purple-500/30 flex items-center justify-between transition-all ${
-                          chatMode === 'web' ? 'bg-purple-900/40 text-purple-300 border-purple-500/60 shadow-lg' : 'bg-[#1A1A24] text-white hover:bg-purple-950/30'
-                        }`}>
-                          <button 
-                            onClick={() => {
-                              setChatMode('web');
-                              setIsWebAiMenuOpen(true);
-                              setIsTopMenuOpen(false);
-                            }}
-                            className="flex-1 text-left px-4 py-3 flex items-center gap-3 cursor-pointer"
-                          >
-                            <Globe className="w-5 h-5 text-purple-400 shrink-0" />
-                            <div className="flex flex-col">
-                              <span className="text-sm font-semibold">Web AI</span>
-                              <span className="text-[10px] text-purple-300/80 font-mono">Di sini AI bisa buat website</span>
-                            </div>
-                          </button>
-
-                          <div className="flex items-center gap-1 pr-2.5">
-                            {/* Ikon Mata (Preview) dipindahkan ke dalam tombol Web AI */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsWebsitePreviewOpen(true);
-                                setIsTopMenuOpen(false);
-                              }}
-                              className="p-1.5 rounded-lg bg-purple-950/60 hover:bg-purple-600 text-purple-300 hover:text-white transition-colors cursor-pointer border border-purple-500/30"
-                              title="Buka Preview Website (Ikon Mata)"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-
-                            {/* Tombol Titik 3 Ditumpuk dipindahkan ke dalam tombol Web AI */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setChatMode('web');
-                                setIsWebAiMenuOpen(true);
-                                setIsTopMenuOpen(false);
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
-                              title="Fitur Titik 3 Ditumpuk & Opsi Web AI"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
+                        {/* 2. Tombol Room Chat */}
+                        <button 
+                          onClick={() => {
+                            setChatMode('room');
+                            setIsTopMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-xl border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${
+                            chatMode === 'room' ? 'bg-primary-900/40 text-primary-300 border-primary-500/60 shadow-md' : 'bg-[#1A1A24] text-white hover:bg-primary-900/20'
+                          }`}
+                        >
+                          <Users className="w-5 h-5 text-primary-400 shrink-0" />
+                          <span className="text-sm font-semibold">Room Chat</span>
+                        </button>
 
                         {/* 3. Tombol Riwayat Pesan */}
                         <button 
@@ -1869,20 +1123,6 @@ ${rawCode}
                           <Settings className="w-4 h-4 text-primary-400 shrink-0" />
                           <span>Pengaturan Bara AI</span>
                         </button>
-
-                        {/* 5. Tombol Room Chat */}
-                        <button 
-                          onClick={() => {
-                            setChatMode('room');
-                            setIsTopMenuOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-3 rounded-xl border border-primary-500/30 flex items-center gap-3 transition-colors cursor-pointer font-medium ${
-                            chatMode === 'room' ? 'bg-primary-900/40 text-primary-300 border-primary-500/60 shadow-md' : 'bg-[#1A1A24] text-white hover:bg-primary-900/20'
-                          }`}
-                        >
-                          <Users className="w-5 h-5 text-primary-400 shrink-0" />
-                          <span className="text-sm font-semibold">Room Chat</span>
-                        </button>
                         
                         {/* Tombol New Chat */}
                         <button 
@@ -1907,52 +1147,35 @@ ${rawCode}
               </div>
 
               <div className="flex-1 flex justify-center">
-                {chatMode === 'room' ? (
-                  <div className="px-5 py-1.5 rounded-full border border-primary-500/40 bg-[#120F1D]/50 flex items-center justify-center">
-                    <h1 className="text-xs sm:text-sm font-bold tracking-widest text-primary-400 font-mono uppercase">
-                      Room Chat
-                    </h1>
-                  </div>
-                ) : (
-                  <div className="flex items-center p-1 bg-[#120F1D]/80 border border-primary-500/30 rounded-full gap-1 shadow-lg">
-                    {/* Tombol Bara AI (Hanya Chat) */}
-                    <button
-                      onClick={() => setChatMode('ai')}
-                      className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        chatMode === 'ai'
-                          ? 'bg-primary-600 text-white shadow-md'
-                          : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                      title="Bara AI (Hanya untuk chat saja)"
-                    >
-                      <img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-4 h-4 rounded-full object-cover shrink-0" />
-                      <span>Bara AI</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono hidden sm:inline">
-                        Chat
-                      </span>
-                    </button>
+                <div className="flex items-center p-1 bg-[#120F1D]/80 border border-primary-500/30 rounded-full gap-1 shadow-lg">
+                  {/* Tombol Bara AI */}
+                  <button
+                    onClick={() => setChatMode('ai')}
+                    className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      chatMode === 'ai'
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                    title="Bara AI Chat"
+                  >
+                    <img src="/bara-ai-logo.jpg" alt="Bara AI" className="w-4 h-4 rounded-full object-cover shrink-0" />
+                    <span>Bara AI</span>
+                  </button>
 
-                    {/* Tombol Web AI diatas sendiri (Di sini AI bisa buat website) */}
-                    <button
-                      onClick={() => {
-                        setChatMode('web');
-                        setIsWebAiMenuOpen(true);
-                      }}
-                      className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        chatMode === 'web'
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg border border-purple-400/50'
-                          : 'text-purple-300 hover:text-white hover:bg-purple-900/30 border border-purple-500/30'
-                      }`}
-                      title="Web AI (Di sini AI bisa buat website)"
-                    >
-                      <Globe className="w-3.5 h-3.5 text-purple-300 shrink-0" />
-                      <span>Web AI</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/30 text-purple-200 font-mono hidden sm:inline">
-                        Buat Web
-                      </span>
-                    </button>
-                  </div>
-                )}
+                  {/* Tombol Room Chat */}
+                  <button
+                    onClick={() => setChatMode('room')}
+                    className={`px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      chatMode === 'room'
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                    title="Room Chat Komunitas"
+                  >
+                    <Users className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                    <span>Room Chat</span>
+                  </button>
+                </div>
               </div>
 
               <div className="w-12 h-12 flex items-center justify-end">
@@ -1964,17 +1187,14 @@ ${rawCode}
                   >
                     <Settings className="w-5 h-5" />
                   </button>
-                ) : chatMode === 'web' ? (
-                  <button 
-                    onClick={() => setIsWebAiMenuOpen(true)}
-                    className="w-10 h-10 flex items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-950/40 text-purple-300 hover:text-white hover:bg-purple-900/40 transition-colors cursor-pointer relative group"
-                    title="Menu & Opsi Web AI (Di sini AI bisa buat website)"
-                  >
-                    <Globe className="w-5 h-5 text-purple-400" />
-                  </button>
                 ) : (
-                  /* Di mode Bara AI: Ikon mata sudah dipindahkan ke tombol Web AI, jadi di pojok kanan atas Bara AI tidak ada ikon mata */
-                  <div className="w-10 h-10" />
+                  <button 
+                    onClick={() => setIsSettingsMenuOpen(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-2xl border border-primary-500/30 text-primary-400 hover:bg-primary-900/10 transition-colors cursor-pointer"
+                    title="Pengaturan Bara AI"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
                 )}
               </div>
             </div>
@@ -1988,7 +1208,7 @@ ${rawCode}
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
               >
-                {(chatMode === 'ai' || chatMode === 'web') && messages.map((msg) => {
+                {chatMode === 'ai' && messages.map((msg) => {
                   const isAi = msg.sender === 'ai';
                   return (
                     <div 
@@ -2050,16 +1270,6 @@ ${rawCode}
                               >
                                 <ThumbsDown className="w-4 h-4" />
                               </button>
-
-                              {chatMode === 'web' && (msg.text.includes('```html') || msg.text.includes('```') || msg.text.toLowerCase().includes('website') || msg.text.toLowerCase().includes('web') || msg.text.toLowerCase().includes('aplikasi')) && (
-                                <button
-                                  onClick={() => setIsWebsitePreviewOpen(true)}
-                                  className="ml-auto px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/40 to-indigo-600/40 hover:from-purple-600/60 hover:to-indigo-600/60 border border-purple-500/50 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-purple-900/30 group"
-                                >
-                                  <Zap className="w-3.5 h-3.5 text-yellow-400 group-hover:scale-110 transition-transform" />
-                                  <span>⚡ Buka Full Stack Web App</span>
-                                </button>
-                              )}
                             </div>
                           )}
                         </div>
@@ -2197,36 +1407,22 @@ ${rawCode}
                   );
                 })}
 
-                {isThinking && (chatMode === 'ai' || chatMode === 'web') && (
+                {isThinking && chatMode === 'ai' && (
                   <div className="flex items-start gap-3 sm:gap-4 justify-start animate-fade-in">
                     <div className="flex-shrink-0 relative mt-1">
-                      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center overflow-hidden bg-[#141416]/90 shadow-[0_0_12px_rgba(34,197,94,0.3)] animate-pulse ${
-                        chatMode === 'web' ? 'border-purple-400/80 shadow-purple-900/40' : 'border-primary-400/80'
-                      }`}>
-                        {chatMode === 'web' ? (
-                          <div className="w-full h-full bg-gradient-to-tr from-purple-700 to-indigo-600 flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-white animate-spin" style={{ animationDuration: '4s' }} />
-                          </div>
-                        ) : (
-                          <img src="/bara-ai-logo.jpg" alt="Bara AI Berpikir" className="w-full h-full object-cover" />
-                        )}
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-primary-400/80 flex items-center justify-center overflow-hidden bg-[#141416]/90 shadow-[0_0_12px_rgba(139,92,246,0.3)] animate-pulse">
+                        <img src="/bara-ai-logo.jpg" alt="Bara AI Berpikir" className="w-full h-full object-cover" />
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#0A0A0A] animate-ping ${
-                        chatMode === 'web' ? 'bg-purple-500' : 'bg-emerald-500'
-                      }`} />
+                      <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#0A0A0A] bg-emerald-500 animate-ping" />
                     </div>
 
-                    <div className={`bg-[#141416]/90 border rounded-2xl px-5 py-4 flex items-center gap-3 ${
-                      chatMode === 'web' ? 'border-purple-500/50' : 'border-primary-500/50'
-                    }`}>
+                    <div className="bg-[#141416]/90 border border-primary-500/50 rounded-2xl px-5 py-4 flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full animate-bounce ${chatMode === 'web' ? 'bg-purple-400' : 'bg-primary-400'}`} style={{ animationDelay: '0ms' }} />
-                        <span className={`w-2 h-2 rounded-full animate-bounce ${chatMode === 'web' ? 'bg-purple-400' : 'bg-primary-400'}`} style={{ animationDelay: '150ms' }} />
-                        <span className={`w-2 h-2 rounded-full animate-bounce ${chatMode === 'web' ? 'bg-purple-400' : 'bg-primary-400'}`} style={{ animationDelay: '300ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
-                      {chatMode === 'web' && (
-                        <span className="text-xs text-purple-300 font-mono">Web AI sedang merancang kode...</span>
-                      )}
+                      <span className="text-xs text-primary-300 font-mono">Bara AI sedang memproses jawaban...</span>
                     </div>
                   </div>
                 )}
@@ -2251,7 +1447,7 @@ ${rawCode}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (chatMode === 'ai' || chatMode === 'web') {
+                    if (chatMode === 'ai') {
                       handleSendCommand();
                     } else {
                       handleSendRoomMessage(inputCommand);
@@ -2303,9 +1499,9 @@ ${rawCode}
                   )}
                   <div className="relative flex items-end px-2 py-2 bg-[#120F1D]/80 border border-primary-500/30 rounded-3xl shadow-lg transition-all focus-within:border-primary-500/60 focus-within:bg-[#151025]/90">
                     <div className="relative shrink-0 flex items-center pb-1">
-                      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept={(chatMode === 'ai' || chatMode === 'web') ? 'image/*' : undefined} className="hidden" />
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept={chatMode === 'ai' ? 'image/*' : undefined} className="hidden" />
                       
-                      {(chatMode === 'ai' || chatMode === 'web') ? (
+                      {chatMode === 'ai' ? (
                         <button
                           type="button"
                           onClick={handleFileUploadClick}
@@ -2363,7 +1559,7 @@ ${rawCode}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            if (chatMode === 'ai' || chatMode === 'web') {
+                            if (chatMode === 'ai') {
                               handleSendCommand();
                             } else {
                               handleSendRoomMessage(inputCommand);
@@ -2372,28 +1568,26 @@ ${rawCode}
                           }
                         }}
                         placeholder={
-                          chatMode === 'web'
-                            ? "Minta Web AI buatkan website (cth: Buatkan landing page toko modern)..."
-                            : chatMode === 'ai'
-                            ? "Ketik pesan ke Bara AI (Khusus percakapan & chat)..."
-                            : "Kirim pesan ke room..."
+                          chatMode === 'ai'
+                            ? "Ketik pesan ke Bara AI (penalaran, coding, riset, diskusi)..."
+                            : "Kirim pesan ke room chat..."
                         }
                         className="w-full bg-transparent text-gray-200 focus:outline-none resize-none overflow-y-auto max-h-[180px] min-h-[28px] py-1 text-sm sm:text-base placeholder-gray-500 font-mono tracking-wide"
                         rows={1}
-                        disabled={isThinking && (chatMode === 'ai' || chatMode === 'web')}
+                        disabled={isThinking && chatMode === 'ai'}
                       />
                     </div>
 
                     <button
                       type="submit"
-                      disabled={(isThinking && (chatMode === 'ai' || chatMode === 'web')) || !inputCommand.trim()}
+                      disabled={(isThinking && chatMode === 'ai') || !inputCommand.trim()}
                       className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-full transition-all cursor-pointer mr-1 mb-0.5 ${
                         inputCommand.trim()
                           ? 'bg-primary-700 hover:bg-primary-600 text-white' 
                           : 'bg-primary-900/30 text-primary-500/50'
                       }`}
                     >
-                      {(isThinking && (chatMode === 'ai' || chatMode === 'web')) ? (
+                      {(isThinking && chatMode === 'ai') ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       ) : (
                         <Send className={`w-4 h-4 ${inputCommand.trim() ? 'ml-0.5 -mt-0.5' : 'ml-0.5'}`} />
@@ -2402,10 +1596,8 @@ ${rawCode}
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] sm:text-xs text-gray-500 font-mono">
-                      {chatMode === 'web'
-                        ? "Web AI: Buat dan edit website interaktif langsung dari percakapan."
-                        : chatMode === 'ai'
-                        ? "Bara AI: Khusus percakapan & chat interaktif (tidak untuk buat website)."
+                      {chatMode === 'ai'
+                        ? "Bara AI: Asisten kecerdasan buatan cerdas, presisi, dan patuh pada instruksi Anda."
                         : "Room Chat: Terhubung secara real-time ke semua klien."}
                     </p>
                   </div>
@@ -2769,63 +1961,30 @@ ${rawCode}
                   {/* System Prompt Terpisah: Bara AI vs Web Studio */}
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-mono text-primary-300 uppercase">System Prompt</h3>
-                      <div className="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-lg border border-primary-500/20 text-[10px]">
-                        <button
-                          type="button"
-                          onClick={() => setActivePromptTab('bara')}
-                          className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                            activePromptTab === 'bara' 
-                              ? 'bg-primary-600 text-white font-medium shadow-sm' 
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          Bara AI
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActivePromptTab('web')}
-                          className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                            activePromptTab === 'web' 
-                              ? 'bg-primary-600 text-white font-medium shadow-sm' 
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          Web Studio
-                        </button>
-                      </div>
+                      <h3 className="text-xs font-mono text-primary-300 uppercase">System Prompt Bara AI</h3>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-300 font-mono border border-primary-500/30">
+                        Kepatuhan Tinggi (0.2)
+                      </span>
                     </div>
 
                     <p className="text-[11px] text-gray-400 leading-relaxed">
-                      {activePromptTab === 'bara'
-                        ? 'Prompt khusus Bara AI (Chat, diskusi, analisis data, penalaran, asisten). Fokus pada kepatuhan percakapan.'
-                        : 'Prompt khusus Web Studio (Pembuat Website). Fokus pada instruksi pembuatan kode HTML, Tailwind, dan preview.'}
+                      Atur kepribadian, instruksi, dan aturan kepatuhan Bara AI sesuai kebutuhan Anda.
                     </p>
 
                     <textarea
-                      value={activePromptTab === 'bara' ? baraSystemPrompt : webSystemPrompt}
-                      onChange={(e) => {
-                        if (activePromptTab === 'bara') {
-                          setBaraSystemPrompt(e.target.value);
-                        } else {
-                          setWebSystemPrompt(e.target.value);
-                        }
-                      }}
+                      value={baraSystemPrompt}
+                      onChange={(e) => setBaraSystemPrompt(e.target.value)}
                       className="w-full bg-primary-900/10 border border-primary-500/30 rounded-xl px-3 py-2 text-xs text-gray-200 font-mono min-h-[140px] focus:outline-none focus:border-primary-400 leading-relaxed"
-                      placeholder="Masukkan instruksi sistem..."
+                      placeholder="Masukkan instruksi sistem untuk Bara AI..."
                     />
 
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => {
-                          if (activePromptTab === 'bara') {
-                            setBaraSystemPrompt(DEFAULT_BARA_SYSTEM_PROMPT);
-                            localStorage.setItem(STORAGE_KEY_BARA_PROMPT, DEFAULT_BARA_SYSTEM_PROMPT);
-                          } else {
-                            setWebSystemPrompt(DEFAULT_WEB_SYSTEM_PROMPT);
-                            localStorage.setItem(STORAGE_KEY_WEB_PROMPT, DEFAULT_WEB_SYSTEM_PROMPT);
-                          }
+                          setBaraSystemPrompt(DEFAULT_BARA_SYSTEM_PROMPT);
+                          localStorage.setItem(STORAGE_KEY_BARA_PROMPT, DEFAULT_BARA_SYSTEM_PROMPT);
+                          localStorage.setItem(STORAGE_KEY_PROMPT, DEFAULT_BARA_SYSTEM_PROMPT);
                           setIsPromptSavedToast(true);
                           setTimeout(() => setIsPromptSavedToast(false), 3000);
                         }}
@@ -2837,18 +1996,14 @@ ${rawCode}
                       <button
                         type="button"
                         onClick={() => {
-                          if (activePromptTab === 'bara') {
-                            localStorage.setItem(STORAGE_KEY_BARA_PROMPT, baraSystemPrompt);
-                            localStorage.setItem(STORAGE_KEY_PROMPT, baraSystemPrompt);
-                          } else {
-                            localStorage.setItem(STORAGE_KEY_WEB_PROMPT, webSystemPrompt);
-                          }
+                          localStorage.setItem(STORAGE_KEY_BARA_PROMPT, baraSystemPrompt);
+                          localStorage.setItem(STORAGE_KEY_PROMPT, baraSystemPrompt);
                           setIsPromptSavedToast(true);
                           setTimeout(() => setIsPromptSavedToast(false), 3000);
                         }}
                         className="text-xs bg-primary-600 hover:bg-primary-500 px-3 py-1.5 rounded-lg text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary-900/20"
                       >
-                        <Save className="w-3.5 h-3.5" /> Simpan Prompt {activePromptTab === 'bara' ? 'Bara' : 'Web'}
+                        <Save className="w-3.5 h-3.5" /> Simpan Prompt
                       </button>
                     </div>
                     {isPromptSavedToast && <p className="text-emerald-400 text-xs text-right mt-1">✓ Berhasil disimpan</p>}
@@ -2922,700 +2077,6 @@ ${rawCode}
                   </button>
                   <button onClick={handleLogout} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors cursor-pointer text-sm">
                     Oke
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Website Preview Overlay Modal */}
-          {isWebsitePreviewOpen && (
-            <div className={`fixed inset-0 z-[180] bg-black/90 backdrop-blur-md flex flex-col ${isWebsiteFullscreen ? 'p-0' : 'p-2 sm:p-4'} animate-fade-in`}>
-              {/* Top Header of Preview */}
-              <div className="flex items-center justify-between p-3 bg-[#121217] border border-purple-500/30 rounded-t-2xl shrink-0">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Globe className="w-5 h-5 text-purple-400 shrink-0" />
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold font-orbitron text-purple-300 truncate">
-                        Preview: {activeWebsite?.title || 'Website Bara AI'}
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 flex items-center gap-1 shrink-0">
-                        <Zap className="w-3 h-3 text-yellow-400" /> Full Stack App
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-mono">
-                      {websites.length} website tersimpan • Frontend + REST API + DB
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setIsWebAiMenuOpen(true)}
-                    className="p-1.5 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
-                    title="Buka Menu Web AI & Fitur Website"
-                  >
-                    <Globe className="w-4 h-4 text-purple-400" />
-                    <span className="hidden sm:inline">Menu Web AI</span>
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setGithubSyncMessage(`Update ${githubSyncPath} via Bara AI Website Preview`);
-                      setGithubSyncResult(null);
-                      setIsGithubSyncModalOpen(true);
-                    }}
-                    className="p-1.5 px-2.5 rounded-lg hover:bg-purple-900/40 text-purple-300 border border-purple-500/40 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium"
-                    title="GitHub Sync: Sinkronisasi website ke GitHub"
-                  >
-                    <Github className="w-4 h-4 text-purple-400" />
-                    <span className="hidden sm:inline">GitHub Sync</span>
-                  </button>
-
-                  <button 
-                    onClick={() => setIsWebsiteFullscreen(!isWebsiteFullscreen)}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors cursor-pointer"
-                    title={isWebsiteFullscreen ? "Tutup Layar Penuh" : "Layar Penuh"}
-                  >
-                    {isWebsiteFullscreen ? <Minimize2 className="w-4 h-4 text-purple-400" /> : <Maximize2 className="w-4 h-4 text-purple-400" />}
-                  </button>
-
-                  <select 
-                    value={activeWebsiteId} 
-                    onChange={(e) => setActiveWebsiteId(e.target.value)}
-                    className="bg-[#1a1a24] border border-purple-500/30 text-xs text-gray-200 rounded-lg px-2 py-1 focus:outline-none max-w-[140px] sm:max-w-[200px] truncate cursor-pointer"
-                  >
-                    {websites.map(w => (
-                      <option key={w.id} value={w.id}>
-                        {w.title}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button 
-                    onClick={() => setIsWebsitePreviewOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Main iFrame Container */}
-              <div className="flex-1 w-full bg-black border-x border-b border-purple-500/30 rounded-b-2xl overflow-hidden relative">
-                <iframe
-                  title="Website Live Preview"
-                  srcDoc={prepareIframeSrcDoc(activeWebsiteCode)}
-                  className="w-full h-full border-0 bg-white"
-                  sandbox="allow-scripts allow-same-origin allow-modals allow-forms"
-                />
-
-                {websiteCopiedToast && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-2xl flex items-center gap-2 z-[250] animate-bounce">
-                    <CheckIcon className="w-4 h-4" />
-                    <span>Kode Website Berhasil Disalin!</span>
-                  </div>
-                )}
-
-              </div>
-            </div>
-          )}
-
-          {/* Web AI Modal: Di Sini AI Bisa Buat Website (Memuat Ikon Mata & Semua Fitur Titik 3 Ditumpuk) */}
-          {isWebAiMenuOpen && (
-            <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in" onClick={() => setIsWebAiMenuOpen(false)}>
-              <div className="bg-[#101018] border border-purple-500/40 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                {/* Header Modal */}
-                <div className="flex items-center justify-between pb-3 border-b border-purple-500/20">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-900/40">
-                      <Globe className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base sm:text-lg font-bold text-white font-orbitron">Web AI Studio</h3>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/40">
-                          AI Pembuat Website
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        Di sini AI bisa membuat website interaktif, modern, dan fungsional
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsWebAiMenuOpen(false)}
-                    className="p-1.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Status Mode Web AI */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border border-purple-500/30 flex items-center justify-between gap-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-purple-200">Mode Web AI Aktif</span>
-                    <span className="text-[11px] text-gray-300">
-                      {chatMode === 'web' ? 'Sedang aktif — AI siap merancang website dari chat' : 'Beralih ke Web AI untuk mulai merancang website'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setChatMode('web');
-                      setIsWebAiMenuOpen(false);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-md ${
-                      chatMode === 'web'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-purple-600 hover:bg-purple-500 text-white'
-                    }`}
-                  >
-                    {chatMode === 'web' ? '✓ Mode Aktif' : 'Aktifkan Mode'}
-                  </button>
-                </div>
-
-                {/* 1. Ikon Mata (Preview Website) - Dipindahkan dari pojok kanan atas Bara AI */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-purple-400 font-bold">
-                    👁️ Preview Website (Ikon Mata)
-                  </span>
-                  <button
-                    onClick={() => {
-                      setIsWebAiMenuOpen(false);
-                      setIsWebsitePreviewOpen(true);
-                    }}
-                    className="w-full p-3.5 rounded-2xl bg-[#171524] hover:bg-purple-900/40 border border-purple-500/40 text-white flex items-center justify-between transition-all cursor-pointer group shadow-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300 group-hover:scale-110 transition-transform">
-                        <Eye className="w-5 h-5 text-purple-300" />
-                      </div>
-                      <div className="flex flex-col text-left">
-                        <span className="text-xs sm:text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
-                          Buka Preview Website
-                        </span>
-                        <span className="text-[11px] text-gray-400">
-                          Lihat hasil render langsung website: {activeWebsite?.title || 'Website AI'}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 font-medium border border-purple-500/30">
-                      Buka Preview →
-                    </span>
-                  </button>
-                </div>
-
-                {/* 2. Semua Tombol Titik 3 Ditumpuk (Dipindahkan dari pojok kanan bawah preview) */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-purple-400 font-bold">
-                    ⚙️ Opsi & Fitur Website (Dari Titik 3 Preview)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Edit Kode */}
-                    <button
-                      onClick={() => {
-                        setIsWebAiMenuOpen(false);
-                        setEditingWebsiteCodeText(activeWebsiteCode);
-                        setWebsiteCodeModalTab('edit');
-                        setIsEditingWebsiteCode(true);
-                      }}
-                      className="p-3 rounded-xl bg-[#14141e] hover:bg-purple-900/30 border border-purple-500/20 hover:border-purple-500/50 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Edit2 className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white">Edit Kode</span>
-                        <span className="text-[10px] text-gray-400 truncate">Ubah HTML & Script</span>
-                      </div>
-                    </button>
-
-                    {/* Lihat Kode Berwarna (AI Style) */}
-                    <button
-                      onClick={() => {
-                        setIsWebAiMenuOpen(false);
-                        setEditingWebsiteCodeText(activeWebsiteCode);
-                        setWebsiteCodeModalTab('highlight');
-                        setIsEditingWebsiteCode(true);
-                      }}
-                      className="p-3 rounded-xl bg-[#14141e] hover:bg-purple-900/30 border border-purple-500/20 hover:border-purple-500/50 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Code className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white">Kode Berwarna (AI)</span>
-                        <span className="text-[10px] text-gray-400 truncate">Syntax Highlighter</span>
-                      </div>
-                    </button>
-
-                    {/* Salin Kode */}
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(activeWebsiteCode);
-                        setWebsiteCopiedToast(true);
-                        setTimeout(() => setWebsiteCopiedToast(false), 2500);
-                        setIsWebAiMenuOpen(false);
-                      }}
-                      className="p-3 rounded-xl bg-[#14141e] hover:bg-purple-900/30 border border-purple-500/20 hover:border-purple-500/50 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Copy className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white">Salin Kode</span>
-                        <span className="text-[10px] text-gray-400 truncate">Copy HTML ke Clipboard</span>
-                      </div>
-                    </button>
-
-                    {/* Download HTML */}
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([activeWebsiteCode], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${activeWebsite?.title || 'website'}.html`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        setIsWebAiMenuOpen(false);
-                      }}
-                      className="p-3 rounded-xl bg-[#14141e] hover:bg-purple-900/30 border border-purple-500/20 hover:border-purple-500/50 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Download className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white">Download HTML</span>
-                        <span className="text-[10px] text-gray-400 truncate">Unduh index.html</span>
-                      </div>
-                    </button>
-
-                    {/* Layar Penuh */}
-                    <button
-                      onClick={() => {
-                        setIsWebAiMenuOpen(false);
-                        setIsWebsiteFullscreen(true);
-                        setIsWebsitePreviewOpen(true);
-                      }}
-                      className="p-3 rounded-xl bg-[#14141e] hover:bg-purple-900/30 border border-purple-500/20 hover:border-purple-500/50 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Maximize2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-white">Layar Penuh</span>
-                        <span className="text-[10px] text-gray-400 truncate">Preview Fullscreen</span>
-                      </div>
-                    </button>
-
-                    {/* GitHub Sync */}
-                    <button
-                      onClick={() => {
-                        setIsWebAiMenuOpen(false);
-                        setGithubSyncMessage(`Update ${githubSyncPath} via Web AI`);
-                        setGithubSyncResult(null);
-                        setIsGithubSyncModalOpen(true);
-                      }}
-                      className="p-3 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 hover:border-purple-400 flex items-center gap-2.5 text-left transition-all cursor-pointer group"
-                    >
-                      <Github className="w-4 h-4 text-purple-300 group-hover:scale-110 transition-transform shrink-0" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-semibold text-purple-200">GitHub Sync</span>
-                        <span className="text-[10px] text-purple-300/80 truncate">Sinkron ke Repository</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3. Daftar Proyek Website */}
-                <div className="flex flex-col gap-2 pt-2 border-t border-purple-500/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-gray-400 font-bold">
-                      Daftar Proyek Website ({websites.length})
-                    </span>
-                    <select
-                      value={activeWebsiteId}
-                      onChange={(e) => setActiveWebsiteId(e.target.value)}
-                      className="bg-[#1a1a24] border border-purple-500/30 text-xs text-gray-200 rounded-lg px-2 py-1 focus:outline-none max-w-[180px] truncate cursor-pointer"
-                    >
-                      {websites.map(w => (
-                        <option key={w.id} value={w.id}>
-                          {w.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Edit & Highlight Website Code Modal (Sama dengan Warna Code AI) */}
-          {isEditingWebsiteCode && (
-            <div className="fixed inset-0 z-[240] bg-black/85 backdrop-blur-md p-2 sm:p-4 flex flex-col items-center justify-center animate-fade-in">
-              <div className="w-full max-w-5xl bg-[#0e0e14] border border-purple-500/40 rounded-3xl overflow-hidden flex flex-col h-[90vh] shadow-2xl">
-                {/* Header Modal */}
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#14141c] border-b border-purple-500/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-950/60 border border-purple-500/30 flex items-center justify-center">
-                      <Code className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-white font-orbitron truncate max-w-[260px] sm:max-w-md">
-                        Kode Website: {activeWebsite?.title}
-                      </h3>
-                      <p className="text-[11px] text-gray-400 font-mono">
-                        Pewarnaan syntax presisi identik dengan tampilan code AI Bara
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Mode Tabs (Kode Berwarna AI, Edit, Split) */}
-                  <div className="flex items-center gap-1 bg-[#1a1a24] p-1 rounded-xl border border-purple-500/30">
-                    <button 
-                      onClick={() => setWebsiteCodeModalTab('highlight')}
-                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        websiteCodeModalTab === 'highlight' 
-                          ? 'bg-purple-600 text-white shadow' 
-                          : 'text-gray-300 hover:text-white'
-                      }`}
-                    >
-                      <Eye className="w-3.5 h-3.5 text-purple-300" />
-                      <span>Kode Berwarna (AI Style)</span>
-                    </button>
-                    <button 
-                      onClick={() => setWebsiteCodeModalTab('edit')}
-                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        websiteCodeModalTab === 'edit' 
-                          ? 'bg-purple-600 text-white shadow' 
-                          : 'text-gray-300 hover:text-white'
-                      }`}
-                    >
-                      <Edit2 className="w-3.5 h-3.5 text-purple-300" />
-                      <span>Edit Kode</span>
-                    </button>
-                    <button 
-                      onClick={() => setWebsiteCodeModalTab('split')}
-                      className={`hidden md:flex px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer items-center gap-1.5 ${
-                        websiteCodeModalTab === 'split' 
-                          ? 'bg-purple-600 text-white shadow' 
-                          : 'text-gray-300 hover:text-white'
-                      }`}
-                    >
-                      <Cpu className="w-3.5 h-3.5 text-purple-300" />
-                      <span>Split Mode</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(editingWebsiteCodeText || activeWebsiteCode);
-                        setWebsiteCopiedToast(true);
-                        setTimeout(() => setWebsiteCopiedToast(false), 2000);
-                      }}
-                      className="px-3 py-1.5 bg-[#1f1f2b] hover:bg-[#2b2b3c] text-gray-200 text-xs font-semibold rounded-xl border border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Salin Kode ke Clipboard"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Salin</span>
-                    </button>
-                    <button 
-                      onClick={() => setIsEditingWebsiteCode(false)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sub Bar (Info Bahasa & Baris) */}
-                <div className="px-4 py-2 bg-[#0c0c10] border-b border-white/5 flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold uppercase">
-                      HTML / JS / CSS
-                    </span>
-                    <span>Pewarna Syntax: VS Code Dark Plus (Prism AI)</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span>{editingWebsiteCodeText.split('\n').length} baris</span>
-                    <span>•</span>
-                    <span>{new Blob([editingWebsiteCodeText]).size} bytes</span>
-                  </div>
-                </div>
-
-                {/* Code Content Area */}
-                <div className="flex-1 bg-[#050507] overflow-hidden relative flex">
-                  {/* Mode 1: Kode Berwarna Identik AI */}
-                  {websiteCodeModalTab === 'highlight' && (
-                    <div className="flex-1 overflow-auto p-2 sm:p-3 custom-scrollbar">
-                      <SyntaxHighlighter
-                        language="html"
-                        style={vscDarkPlus}
-                        customStyle={{
-                          margin: 0,
-                          padding: '1rem',
-                          fontSize: '0.82rem',
-                          backgroundColor: '#050507',
-                          fontFamily: "'JetBrains Mono', monospace",
-                          lineHeight: '1.6',
-                          minHeight: '100%',
-                          borderRadius: '0.75rem'
-                        }}
-                        showLineNumbers={true}
-                        lineNumberStyle={{ minWidth: '2.5em', paddingRight: '1em', color: '#52525b', textAlign: 'right', userSelect: 'none' }}
-                        wrapLongLines={false}
-                      >
-                        {editingWebsiteCodeText || activeWebsiteCode}
-                      </SyntaxHighlighter>
-                    </div>
-                  )}
-
-                  {/* Mode 2: Editor Textarea */}
-                  {websiteCodeModalTab === 'edit' && (
-                    <div className="flex-1 p-3 overflow-hidden flex flex-col">
-                      <textarea
-                        value={editingWebsiteCodeText}
-                        onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
-                        className="w-full h-full bg-[#08080c] text-gray-200 font-mono text-xs sm:text-sm p-4 focus:outline-none resize-none leading-relaxed border border-purple-500/20 rounded-2xl focus:border-purple-500/60 transition-colors shadow-inner"
-                        spellCheck={false}
-                        placeholder="Masukkan kode HTML, CSS, dan JavaScript di sini..."
-                      />
-                    </div>
-                  )}
-
-                  {/* Mode 3: Split View */}
-                  {websiteCodeModalTab === 'split' && (
-                    <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                      <div className="w-full md:w-1/2 p-3 border-b md:border-b-0 md:border-r border-purple-500/20 flex flex-col">
-                        <div className="text-[11px] font-mono text-gray-400 mb-1.5 flex items-center gap-1.5">
-                          <Edit2 className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Editor Langsung:</span>
-                        </div>
-                        <textarea
-                          value={editingWebsiteCodeText}
-                          onChange={(e) => setEditingWebsiteCodeText(e.target.value)}
-                          className="w-full flex-1 bg-[#08080c] text-gray-200 font-mono text-xs p-3 focus:outline-none resize-none leading-relaxed border border-purple-500/20 rounded-xl focus:border-purple-500/60"
-                          spellCheck={false}
-                        />
-                      </div>
-                      <div className="w-full md:w-1/2 p-3 overflow-auto flex flex-col custom-scrollbar">
-                        <div className="text-[11px] font-mono text-gray-400 mb-1.5 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Preview Berwarna (AI Style):</span>
-                        </div>
-                        <div className="flex-1 overflow-auto rounded-xl border border-purple-500/20 bg-[#050507]">
-                          <SyntaxHighlighter
-                            language="html"
-                            style={vscDarkPlus}
-                            customStyle={{
-                              margin: 0,
-                              padding: '0.8rem',
-                              fontSize: '0.78rem',
-                              backgroundColor: '#050507',
-                              fontFamily: "'JetBrains Mono', monospace",
-                              lineHeight: '1.5',
-                              minHeight: '100%'
-                            }}
-                            showLineNumbers={true}
-                            lineNumberStyle={{ minWidth: '2.2em', paddingRight: '0.8em', color: '#52525b', textAlign: 'right', userSelect: 'none' }}
-                            wrapLongLines={false}
-                          >
-                            {editingWebsiteCodeText || activeWebsiteCode}
-                          </SyntaxHighlighter>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer Modal */}
-                <div className="p-4 bg-[#14141c] border-t border-purple-500/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        setWebsiteCodeModalTab(prev => prev === 'highlight' ? 'edit' : 'highlight');
-                      }}
-                      className="px-3 py-1.5 text-xs text-purple-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 rounded-xl transition-colors cursor-pointer"
-                    >
-                      {websiteCodeModalTab === 'highlight' ? 'Beralih ke Mode Edit' : 'Beralih ke Kode Berwarna (AI)'}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => setIsEditingWebsiteCode(false)}
-                      className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white cursor-pointer"
-                    >
-                      Tutup
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setWebsites(prev => prev.map(w => w.id === activeWebsiteId ? { ...w, code: editingWebsiteCodeText, updatedAt: Date.now() } : w));
-                        setIsEditingWebsiteCode(false);
-                      }}
-                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow-lg transition-colors cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Simpan & Update Website</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* GitHub Sync Modal */}
-          {isGithubSyncModalOpen && (
-            <div className="fixed inset-0 z-[250] bg-black/85 backdrop-blur-md p-3 sm:p-4 flex flex-col items-center justify-center animate-fade-in" onClick={() => setIsGithubSyncModalOpen(false)}>
-              <div className="w-full max-w-lg bg-[#0e0e14] border border-purple-500/40 rounded-3xl overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between p-4 sm:p-5 bg-[#14141c] border-b border-purple-500/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-purple-950/60 border border-purple-500/30 flex items-center justify-center">
-                      <Github className="w-5 h-5 text-purple-300" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-white font-orbitron flex items-center gap-2">
-                        GitHub Sync
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">Octokit API</span>
-                      </h3>
-                      <p className="text-xs text-gray-400 font-mono truncate max-w-[260px] sm:max-w-xs">
-                        Website: {activeWebsite?.title}
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setIsGithubSyncModalOpen(false)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="p-4 sm:p-5 flex flex-col gap-3.5 overflow-y-auto max-h-[70vh]">
-                  {/* Result notification */}
-                  {githubSyncResult && (
-                    <div className={`p-3.5 rounded-2xl border text-xs font-mono flex items-start gap-2.5 ${
-                      githubSyncResult.success 
-                        ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
-                        : 'bg-red-950/40 border-red-500/40 text-red-300'
-                    }`}>
-                      {githubSyncResult.success ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1 overflow-hidden">
-                        <p className="font-medium">{githubSyncResult.message}</p>
-                        {githubSyncResult.url && (
-                          <a 
-                            href={githubSyncResult.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-emerald-400 underline hover:text-emerald-300 mt-1 font-bold"
-                          >
-                            Lihat Commit di GitHub ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-300 font-mono">Owner / Username</label>
-                      <input 
-                        type="text"
-                        value={githubSyncOwner}
-                        onChange={(e) => setGithubSyncOwner(e.target.value)}
-                        placeholder="baraofficial"
-                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-300 font-mono">Repository</label>
-                      <input 
-                        type="text"
-                        value={githubSyncRepo}
-                        onChange={(e) => setGithubSyncRepo(e.target.value)}
-                        placeholder="Universe-Agent-v24.-04"
-                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-300 font-mono">Branch</label>
-                      <input 
-                        type="text"
-                        value={githubSyncBranch}
-                        onChange={(e) => setGithubSyncBranch(e.target.value)}
-                        placeholder="main"
-                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-300 font-mono">File Path</label>
-                      <input 
-                        type="text"
-                        value={githubSyncPath}
-                        onChange={(e) => setGithubSyncPath(e.target.value)}
-                        placeholder="index.html"
-                        className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-gray-300 font-mono">Pesan Commit</label>
-                    <input 
-                      type="text"
-                      value={githubSyncMessage}
-                      onChange={(e) => setGithubSyncMessage(e.target.value)}
-                      placeholder={`Update ${githubSyncPath} via Bara AI Website Preview`}
-                      className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-gray-300 font-mono">Personal Access Token (PAT)</label>
-                      <span className="text-[10px] text-gray-500 font-mono">Otomatis / Opsional</span>
-                    </div>
-                    <input 
-                      type="password"
-                      value={githubSyncToken}
-                      onChange={(e) => setGithubSyncToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      className="bg-[#14141a] border border-purple-500/30 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 font-mono"
-                    />
-                    <p className="text-[10px] text-gray-400 leading-relaxed font-mono">
-                      Token disimpan lokal. Jika token sudah di-set di file .env server, kolom ini bisa dikosongkan.
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-[#121217] border border-white/5 flex items-center justify-between text-xs text-gray-400 font-mono">
-                    <span>File siap sync:</span>
-                    <span className="text-purple-300 font-bold">{githubSyncPath} ({activeWebsiteCode.split('\n').length} baris)</span>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-[#14141c] border-t border-purple-500/30 flex items-center justify-end gap-3">
-                  <button 
-                    onClick={() => setIsGithubSyncModalOpen(false)}
-                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    onClick={handleGithubSync}
-                    disabled={isGithubSyncing}
-                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    {isGithubSyncing ? (
-                      <>
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Menyinkronkan...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Github className="w-4 h-4" />
-                        <span>Sync Sekarang ke GitHub</span>
-                      </>
-                    )}
                   </button>
                 </div>
               </div>
@@ -3895,145 +2356,6 @@ ${rawCode}
             </div>
           )}
 
-          {/* Website List Modal (Website Saya) */}
-          {isWebsiteListOpen && (
-            <div className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setIsWebsiteListOpen(false)}>
-              <div className="bg-[#101015] border border-purple-500/40 rounded-3xl w-full max-w-2xl overflow-hidden flex flex-col shadow-2xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
-                <div className="p-5 border-b border-purple-500/30 flex justify-between items-center bg-[#14141c]">
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-6 h-6 text-purple-400" />
-                    <div>
-                      <h2 className="text-lg font-bold font-orbitron text-white">Website Saya</h2>
-                      <p className="text-xs text-gray-400 font-mono">Daftar website yang dibuat oleh Bara AI</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => {
-                        const newWeb: WebsiteProject = {
-                          id: 'web_' + Date.now(),
-                          title: `Website Baru #${websites.length + 1}`,
-                          code: DEFAULT_WEBSITE_HTML,
-                          createdAt: Date.now(),
-                          updatedAt: Date.now(),
-                        };
-                        setWebsites(prev => [newWeb, ...prev]);
-                        setActiveWebsiteId(newWeb.id);
-                      }}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Buat Website Baru</span>
-                    </button>
-
-                    <button onClick={() => setIsWebsiteListOpen(false)} className="p-1 rounded-lg text-gray-400 hover:text-white cursor-pointer">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-5 overflow-y-auto flex flex-col gap-3 flex-1">
-                  {websites.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500 text-sm">Belum ada website yang dibuat.</div>
-                  ) : (
-                    websites.map(web => (
-                      <div 
-                        key={web.id}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                          activeWebsiteId === web.id 
-                            ? 'bg-purple-900/30 border-purple-500/60 shadow-lg' 
-                            : 'bg-[#16161f] border-white/10 hover:border-purple-500/30'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0 mt-0.5">
-                            <Globe className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-sm text-gray-100 truncate">{web.title}</h3>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 flex items-center gap-0.5 shrink-0">
-                                <Zap className="w-2.5 h-2.5 text-yellow-400" /> Full Stack
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                              Diupdate: {new Date(web.updatedAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                          <button 
-                            onClick={() => {
-                              setActiveWebsiteId(web.id);
-                              setIsWebsiteListOpen(false);
-                              setIsWebsitePreviewOpen(true);
-                            }}
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Preview</span>
-                          </button>
-
-                          <button 
-                            onClick={() => {
-                              setActiveWebsiteId(web.id);
-                              setEditingWebsiteCodeText(web.code);
-                              setIsEditingWebsiteCode(true);
-                            }}
-                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
-                            title="Edit Kode"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(web.code);
-                              alert("Kode website disalin!");
-                            }}
-                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
-                            title="Salin Kode"
-                          >
-                            <Copy className="w-4 h-4 text-emerald-400" />
-                          </button>
-
-                          <button 
-                            onClick={() => {
-                              const blob = new Blob([web.code], { type: 'text/html' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `${web.title}.html`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            }}
-                            className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs cursor-pointer transition-colors"
-                            title="Download HTML"
-                          >
-                            <Download className="w-4 h-4 text-blue-400" />
-                          </button>
-
-                          {websites.length > 1 && (
-                            <button 
-                              onClick={() => {
-                                setWebsites(prev => prev.filter(w => w.id !== web.id));
-                              }}
-                              className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs cursor-pointer transition-colors"
-                              title="Hapus Website"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </>
